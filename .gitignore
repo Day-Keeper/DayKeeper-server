@@ -35,3 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Firebase 비밀 키
+src/main/resources/firebase/serviceAccountKey.json
