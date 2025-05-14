@@ -5,6 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
-    public User findByGoogle(String google_id);
+public interface UserRepository extends JpaRepository<User, String> {
+    public User findByUid(String uid);
 }

@@ -21,7 +21,7 @@ public class UserService {
     }
     
     private boolean isNewUser(User user) {
-        return userRepository.findByGoogle(user.getGoogle()) == null;
+        return userRepository.findByEmail(user.getGoogle()) == null;
     }
     
 }
