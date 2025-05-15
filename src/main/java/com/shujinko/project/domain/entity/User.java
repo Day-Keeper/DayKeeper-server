@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @Builder
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private String uid;
     @Column(unique = true)
     private String email;

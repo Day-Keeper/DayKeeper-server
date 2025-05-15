@@ -1,3 +1,4 @@
+//JWT 토큰을 생성/검증/파싱하는 유틸 클래스
 package com.shujinko.project.provider;
 
 import io.jsonwebtoken.Claims;

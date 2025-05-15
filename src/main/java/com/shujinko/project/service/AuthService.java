@@ -1,6 +1,7 @@
 package com.shujinko.project.service;
 
 import com.google.firebase.auth.*;
+import com.shujinko.project.config.JwtConfig;
 import com.shujinko.project.domain.entity.User;
 import com.shujinko.project.repository.UserRepository;
 import io.jsonwebtoken.*;
@@ -16,6 +17,7 @@ import java.util.Date;
 public class AuthService {
     @Autowired
     private UserRepository userRepository;
+    private JwtConfig jwtConfig;
 
     public String authenticate(String idToken) throws FirebaseAuthException {
         FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
@@ -43,7 +45,7 @@ public class AuthService {
                 .claim("name", name)
                 .setIssuedAt(new Date())
                 .setExpiration(Date.from(Instant.now().plus(7, ChronoUnit.DAYS)))
-                .signWith(SignatureAlgorithm.HS256, "your-secret-key")
+                .signWith(jwtConfig.getSecretKey(), SignatureAlgorithm.HS256)
                 .compact();
 
         return jwt;

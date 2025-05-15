@@ -1,3 +1,4 @@
+//요청 헤더에서 JWT를 읽고, 사용자 인증을 시도하는 필터
 package com.shujinko.project.filter;
 
 import com.shujinko.project.provider.JwtTokenProvider;
