@@ -1,31 +1,46 @@
 package com.shujinko.project.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.firebase.auth.*;
 import com.shujinko.project.config.JwtConfig;
+import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.domain.entity.User;
+import com.shujinko.project.provider.GoogleTokenVerifier;
 import com.shujinko.project.repository.UserRepository;
-import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
 
 @Service
 public class AuthService {
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
     private JwtConfig jwtConfig;
 
-    public String authenticate(String idToken) throws FirebaseAuthException {
-        FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
-        String uid = decodedToken.getUid();
-        String email = decodedToken.getEmail();
-        String name = (String) decodedToken.getClaims().get("name");
-        String photoUrl = (String) decodedToken.getClaims().get("picture");
+    @Autowired
+    private GoogleTokenVerifier googleTokenVerifier;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    public String authenticate(String idToken) throws FirebaseAuthException {
+        GoogleIdToken.Payload payload = googleTokenVerifier.verify(idToken);
+        if (payload == null) {
+            throw new RuntimeException("유효하지 않은 구글 토큰입니다.");
+        }
+
+        String uid = payload.getSubject(); // 고유 사용자 ID (uid 대신)
+        String email = payload.getEmail();
+        String name = (String) payload.get("name");
+        String photoUrl = (String) payload.get("picture");
+
+        System.out.println("사용자 정보: " + uid + ", " + email + ", " + name + ", " + photoUrl);
+
+
+        // 로그인한 사용자가 DB에 없으면 자동 회원가입
         User user = userRepository.findById(uid).orElseGet(() ->
                 userRepository.save(
                         User.builder()
@@ -38,16 +53,6 @@ public class AuthService {
                 )
         );
 
-        // JWT 생성 로직 (예: jjwt 라이브러리 사용)
-        String jwt = Jwts.builder()
-                .setSubject(uid)
-                .claim("email", email)
-                .claim("name", name)
-                .setIssuedAt(new Date())
-                .setExpiration(Date.from(Instant.now().plus(7, ChronoUnit.DAYS)))
-                .signWith(jwtConfig.getSecretKey(), SignatureAlgorithm.HS256)
-                .compact();
-
-        return jwt;
+        return jwtTokenProvider.createToken(uid, email, name);
     }
 }
