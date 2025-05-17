@@ -21,10 +21,10 @@ public class UserController {
     public String createForm(){
         return "createMemberForm";
     }
-    @PostMapping("/members/new")
-    @ResponseBody
-    public String createNewUser(@RequestBody UserDto userDto) {
-            User user = userDto.toEntity();
-            return userService.join(user);
-    }
+//    @PostMapping("/members/new")
+//    @ResponseBody
+////    public String createNewUser(@RequestBody UserDto userDto) {
+////            User user = userDto.toEntity();
+////            return userService.join(user);
+////    }
 }

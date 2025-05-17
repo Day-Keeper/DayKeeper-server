@@ -1,7 +1,5 @@
 package com.shujinko.project.domain.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.*;
 
