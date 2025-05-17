@@ -17,7 +17,7 @@ public class ProjectApplication {
 	@Bean
 	public CommandLineRunner printRoutes(ApplicationContext ctx) {
 		return args -> {
-			System.out.println("🔍 등록된 컨트롤러 목록:");
+			System.out.println("등록된 컨트롤러 목록:");
 			ctx.getBean(RequestMappingHandlerMapping.class)
 					.getHandlerMethods()
 					.forEach((key, value) -> System.out.println("👉 " + key + " => " + value));
