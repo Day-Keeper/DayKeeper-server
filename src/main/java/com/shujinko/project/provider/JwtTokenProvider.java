@@ -31,6 +31,9 @@ public class JwtTokenProvider {
         secretKey = Keys.hmacShaKeyFor(secretKeyString.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+    * Token에 uid/email/name을 저장해서 토큰발급
+    * */
     public String createToken(String uid, String email, String name) {
         Claims claims = Jwts.claims().setSubject(uid);
         claims.put("email", email);
@@ -47,17 +50,23 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /**
+    *Bearer eawefnbsdbfhwae에서 Bearer가 있다면 Bearer지우고 payload만 꺼내오기 || return NULL
+    * */
     public String resolveToken(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
-        if (bearer != null && bearer.startsWith("Bearer ")) {
+        if (bearer != null && bearer.startsWith("Bearer ")) {//Bearer eawefnbsdbfhwae에서 Bearer가 있다면 Bearer지우고 payload만 꺼내오기
             return bearer.substring(7);
         }
         return null;
     }
 
+    /**
+    * jwt 파서생성(토큰이 올바르게 서명(secretKey로)됐는지/만료안됐는지/형식이 유효한지 체크
+    * */
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
+            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);//jwt 파서생성(토큰이 올바르게 서명(secretKey로)됐는지/만료안됐는지/형식이 유효한지 체크
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             System.out.println("JWT 검증 실패: " + e.getMessage());
@@ -66,12 +75,16 @@ public class JwtTokenProvider {
     }
 
     public UsernamePasswordAuthenticationToken getAuthentication(String token) {
-        String userId = getUserId(token);
-        return new UsernamePasswordAuthenticationToken(userId, "", List.of()); // 권한은 비워둬도 됨
+        String uid = getUid(token);
+        return new UsernamePasswordAuthenticationToken(uid, "", List.of()); //principle(sub), credentials(password), 권한목록
     }
 
-    public String getUserId(String token) {
-        return Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token)
+    
+    /**
+    * Token에서 sub(uid)만 빼오기
+    * */
+    public String getUid(String token) {
+        return Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token)
                 .getBody().getSubject();
     }
 }

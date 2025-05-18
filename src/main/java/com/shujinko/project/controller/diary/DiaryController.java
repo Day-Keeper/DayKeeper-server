@@ -1,0 +1,35 @@
+package com.shujinko.project.controller.diary;
+
+
+import com.shujinko.project.domain.dto.diary.DiaryCreateDto;
+import com.shujinko.project.domain.dto.diary.DiaryResponseDto;
+import com.shujinko.project.provider.JwtTokenProvider;
+import com.shujinko.project.service.diary.DiaryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/diary")
+public class DiaryController {
+    
+    JwtTokenProvider jwtTokenProvider;
+    DiaryService diaryService;
+    @Autowired
+    public DiaryController(final JwtTokenProvider jwtTokenProvider, final DiaryService diaryService) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.diaryService = diaryService;
+    }
+    
+    @PostMapping("/create")
+    public DiaryResponseDto createDiary(
+            Authentication authentication,
+            @RequestBody DiaryCreateDto diaryCreateDto) {
+        
+        String uid = authentication.getName();
+        String rawDiary = diaryCreateDto.getRawDiary();
+        
+        return diaryService.createDiary(diaryCreateDto,uid);
+    }
+}

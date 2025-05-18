@@ -1,8 +1,8 @@
-package com.shujinko.project.controller;
+package com.shujinko.project.controller.user;
 
 import com.google.firebase.auth.FirebaseAuthException;
-import com.shujinko.project.domain.dto.LoginRequest;
-import com.shujinko.project.service.AuthService;
+import com.shujinko.project.domain.dto.user.LoginRequest;
+import com.shujinko.project.service.user.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +19,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        System.out.println("idToken = " + request.getIdToken());
+        System.out.println("idToken = " + request.getIdToken());//googleToken
         if (request.getIdToken() == null || request.getIdToken().isBlank()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("idToken 누락");
         }

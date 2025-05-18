@@ -1,7 +1,7 @@
-package com.shujinko.project.domain.dto;
+package com.shujinko.project.domain.dto.user;
 
 
-import com.shujinko.project.domain.entity.User;
+import com.shujinko.project.domain.entity.user.User;
 import lombok.Getter;
 import lombok.Setter;
 

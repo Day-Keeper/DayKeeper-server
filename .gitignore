@@ -42,5 +42,4 @@ src/main/resources/firebase/serviceAccountKey.json
 # JWT secret config
 .env
 application-dev.properties
-application-local.properties
 src/main/resources/application.properties

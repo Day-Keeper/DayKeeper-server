@@ -1,8 +1,11 @@
-package com.shujinko.project.domain.entity;
+package com.shujinko.project.domain.entity.user;
 
+import com.shujinko.project.domain.entity.diary.Diary;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "user")
@@ -19,4 +22,6 @@ public class User {
     private String name;
     private String photoUrl;
     private LocalDateTime createdAt;
+    @OneToMany(mappedBy = "user")
+    private List<Diary> diaries = new ArrayList<>();
 }

@@ -1,7 +1,6 @@
-package com.shujinko.project.service;
+package com.shujinko.project.service.user;
 
-import com.shujinko.project.domain.entity.User;
-import com.shujinko.project.repository.UserRepository;
+import com.shujinko.project.repository.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

@@ -1,9 +1,7 @@
-package com.shujinko.project.controller;
+package com.shujinko.project.controller.user;
 
 
-import com.shujinko.project.domain.entity.User;
-import com.shujinko.project.domain.dto.UserDto;
-import com.shujinko.project.service.UserService;
+import com.shujinko.project.service.user.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 

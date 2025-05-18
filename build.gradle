@@ -5,11 +5,11 @@ plugins {
 }
 
 group = 'com.shujinko'
-version = '0.0.1-SNAPSHOT'
+version = 'shujinko'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(23)
 	}
 }
 

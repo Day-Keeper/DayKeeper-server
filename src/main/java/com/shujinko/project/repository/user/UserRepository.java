@@ -1,6 +1,6 @@
-package com.shujinko.project.repository;
+package com.shujinko.project.repository.user;
 
-import com.shujinko.project.domain.entity.User;
+import com.shujinko.project.domain.entity.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
