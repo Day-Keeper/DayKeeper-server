@@ -31,4 +31,3 @@ public class SecurityConfig {
                 .build();
     }
 }
-
