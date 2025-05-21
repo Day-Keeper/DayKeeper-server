@@ -24,7 +24,7 @@ public class JwtTokenProvider {
     private String secretKeyString;  // ← 문자열 그대로 받아오기
 
     private SecretKey secretKey;
-    private long validityInMilliseconds = 3600000; // 1시간
+    private long validityInMilliseconds = 1209600000L; // 1시간
 
     @PostConstruct
     protected void init() {

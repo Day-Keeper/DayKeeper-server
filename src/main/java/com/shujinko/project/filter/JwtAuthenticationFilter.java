@@ -26,25 +26,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        System.out.println("🛡️ 필터 진입: " + path);
+        System.out.println("필터 진입: " + path);
 
-        // ✅ /auth는 무조건 통과
+        // /auth는 무조건 통과
         if (path.startsWith("/auth")) {
-            System.out.println("✅ 필터 예외 처리: " + path);
+            System.out.println("필터 예외 처리: " + path);
             filterChain.doFilter(request, response);
             return;
         }
 
         String token = jwtTokenProvider.resolveToken(request);
 
-        // ✅ 토큰이 아예 없으면 통과
+        // 토큰이 아예 없으면 통과
         if (token == null) {
-            System.out.println("⚠️ 토큰 없음, 필터 통과");
+            System.out.println("    토큰 없음, 필터 통과");
             filterChain.doFilter(request, response);
             return;
         }
 
-        // ✅ 토큰 있을 경우 검증
+        // 토큰 있을 경우 검증
         if (jwtTokenProvider.validateToken(token)) {
             Authentication auth = jwtTokenProvider.getAuthentication(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
