@@ -67,4 +67,19 @@ public class AuthService {
 
         return new LoginResponse(accessToken, refreshToken);
     }
+
+    public String refreshAccessToken(String refreshToken) {
+        RefreshToken token = refreshTokenRepository.findByToken(refreshToken)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 refresh token"));
+
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("refresh token 만료됨");
+        }
+
+        User user = userRepository.findById(token.getUid())
+                .orElseThrow(() -> new RuntimeException("사용자 정보 없음"));
+
+        return jwtTokenProvider.createAccessToken(user.getUid(), user.getEmail(), user.getName());
+    }
+
 }
