@@ -1,11 +1,14 @@
 package com.shujinko.project.domain.dto.diary;
 
+import com.shujinko.project.domain.dto.ai.EmotionResultDto;
 import com.shujinko.project.domain.entity.diary.DiaryEmotion;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -14,6 +17,6 @@ public class DiaryResponseDto {
     private String rephrasedDiary;
     private LocalDateTime createdAt;
     private String summary;
-    private List<KeywordDto> keywords;
-    private List<DiaryEmotionDto> emotions;
+    private List<String> keywords;
+    private EmotionResultDto emotions;
 }

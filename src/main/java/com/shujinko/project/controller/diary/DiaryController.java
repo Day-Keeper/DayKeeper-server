@@ -2,6 +2,7 @@ package com.shujinko.project.controller.diary;
 
 
 import com.shujinko.project.domain.dto.diary.DiaryCreateDto;
+import com.shujinko.project.domain.dto.diary.DiaryRequestDto;
 import com.shujinko.project.domain.dto.diary.DiaryResponseDto;
 import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.service.diary.DiaryService;
@@ -9,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/diary")
@@ -31,5 +34,32 @@ public class DiaryController {
         String rawDiary = diaryCreateDto.getRawDiary();
         
         return diaryService.createDiary(diaryCreateDto,uid);
+    }
+    
+    @GetMapping("/diaries")
+    public List<DiaryResponseDto> getDiaries(Authentication authentication,
+                                             @RequestParam("year") int year
+    , @RequestParam("month") int month) {
+        DiaryRequestDto request = new DiaryRequestDto();
+        request.setYear(year);
+        request.setMonth(month);
+        request.setDay(0);
+        String uid = authentication.getName();
+        
+        return diaryService.getAllDiaries(request,uid);
+    }
+    
+    @GetMapping("")
+    public DiaryResponseDto getDiary(Authentication authentication,
+                                     @RequestParam("year") int year,
+                                     @RequestParam("month") int month,
+                                     @RequestParam("day") int day){
+        DiaryRequestDto request = new DiaryRequestDto();
+        request.setYear(year);
+        request.setMonth(month);
+        request.setDay(day);
+        String uid = authentication.getName();
+        
+        return null;
     }
 }

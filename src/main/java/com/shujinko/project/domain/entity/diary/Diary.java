@@ -2,10 +2,7 @@ package com.shujinko.project.domain.entity.diary;
 
 import com.shujinko.project.domain.entity.user.User;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -44,9 +41,14 @@ public class Diary {
     )
     private List<Keyword> keywords = new ArrayList<>();
     
-    @OneToMany(mappedBy = "diary")
+    @OneToMany(mappedBy = "diary",cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
     
+    private String LabelEmotion = "";
+    
+    
+    
+    //<editor-fold desc="Functions">
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -59,4 +61,5 @@ public class Diary {
     public int hashCode() {
         return getClass().hashCode();
     }
+    //</editor-fold>
 }

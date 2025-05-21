@@ -3,7 +3,6 @@ package com.shujinko.project.domain.entity.diary;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.security.Key;
 import java.util.ArrayList;
 import java.util.List;
 

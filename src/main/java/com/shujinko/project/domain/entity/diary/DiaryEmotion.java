@@ -1,7 +1,6 @@
 package com.shujinko.project.domain.entity.diary;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,7 +21,7 @@ public class DiaryEmotion {
     
     @ManyToOne
     @MapsId("eid")
-    @JoinColumn(name = "eid")//이 테이블에 DB에 "id"라는 FK컬럼 생성
+    @JoinColumn(name = "eid")//이 테이블에 DB에 "DiaryEmotion에 eid"라는 FK컬럼 생성
     private Emotion emotion;
     
     private float score;

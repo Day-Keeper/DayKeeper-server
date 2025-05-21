@@ -34,8 +34,11 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()// /auth로 시작하는 주소는 누구나 접근가능
-                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/auth/**",
+                                "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/v3/api-docs/**",
+                                "/webjars/**").permitAll()// /auth로 시작하는 주소는 누구나 접근가능
                         .anyRequest().authenticated() // 다른 주소는 반드시 로그인한 사람만 접근가능
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) // Token 존재하는지, 유효한지 Spring Security에 저장

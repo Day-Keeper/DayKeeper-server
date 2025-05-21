@@ -2,11 +2,17 @@ package com.shujinko.project.domain.entity.diary;
 
 import jakarta.persistence.Embeddable;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.Objects;
-
+/**
+ * 복합키
+ * */
 @Embeddable
+@Setter
+@Getter
 public class DiaryEmotionId implements Serializable {
     
     private Long did;

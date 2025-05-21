@@ -2,6 +2,7 @@ package com.shujinko.project.domain.dto.user;
 
 
 import com.shujinko.project.domain.entity.user.User;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
+@Builder
 public class UserDto {
     private String uid;
     private String email;
