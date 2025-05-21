@@ -21,23 +21,22 @@ import java.util.List;
 public class JwtTokenProvider {
 
     @Value("${jwt.secret}")
-    private String secretKeyString;  // ← 문자열 그대로 받아오기
+    private String secretKeyString;
 
     private SecretKey secretKey;
-    private long validityInMilliseconds = 1209600000L; // 1시간
 
     @PostConstruct
     protected void init() {
         secretKey = Keys.hmacShaKeyFor(secretKeyString.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String createToken(String uid, String email, String name) {
+    public String createAccessToken(String uid, String email, String name) {
         Claims claims = Jwts.claims().setSubject(uid);
         claims.put("email", email);
         claims.put("name", name);
 
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + validityInMilliseconds);
+        Date expiry = new Date(now.getTime() + 3600000);
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -46,6 +45,19 @@ public class JwtTokenProvider {
                 .signWith(SignatureAlgorithm.HS256, secretKey)
                 .compact();
     }
+
+    public String createRefreshToken(String uid) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + 1209600000L); // 2주
+
+        return Jwts.builder()
+                .setSubject(uid)
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(SignatureAlgorithm.HS256, secretKey)
+                .compact();
+    }
+
 
     public String resolveToken(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");

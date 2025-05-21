@@ -25,9 +25,12 @@ public class AuthController {
         }
 
         try {
-            String jwt = authService.authenticate(request.getIdToken());
-            System.out.println("JWT 발급 성공: " + jwt);
-            return ResponseEntity.ok(Collections.singletonMap("token", jwt))    ;
+            var tokens = authService.authenticate(request.getIdToken());
+
+            System.out.println("AccessToken 발급 성공: " + tokens.getAccessToken());
+            System.out.println("RefreshToken 발급 성공: " + tokens.getRefreshToken());
+
+            return ResponseEntity.ok(tokens);
         } catch (FirebaseAuthException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid ID token");
         }
