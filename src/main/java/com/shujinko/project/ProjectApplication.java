@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 @SpringBootApplication
-public class ProjectApplication {
+public class ProjectApplication {	
 
 	public static void main(String[] args) {
 		SpringApplication.run(ProjectApplication.class, args);
