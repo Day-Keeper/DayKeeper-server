@@ -1,6 +1,7 @@
 package com.shujinko.project.domain.dto.diary;
 
 import com.shujinko.project.domain.dto.ai.EmotionResultDto;
+import com.shujinko.project.domain.dto.ai.EmotionScoreDto;
 import com.shujinko.project.domain.entity.diary.DiaryEmotion;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,6 +18,7 @@ public class DiaryResponseDto {
     private String rephrasedDiary;
     private LocalDateTime createdAt;
     private String summary;
+    private String label;
     private List<String> keywords;
-    private EmotionResultDto emotions;
+    private List<EmotionScoreDto> emotions;
 }

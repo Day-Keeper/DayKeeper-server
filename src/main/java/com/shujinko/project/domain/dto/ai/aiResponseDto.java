@@ -11,5 +11,5 @@ import java.util.List;
 @Setter
 public class aiResponseDto {
     private List<ParagraphDto> paragraphs;
-    private EmotionResultDto emotion;
+    private aiEmotionDto emotion;
 }

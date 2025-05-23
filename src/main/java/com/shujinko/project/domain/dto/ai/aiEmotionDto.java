@@ -1,15 +1,13 @@
 package com.shujinko.project.domain.dto.ai;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.List;
 import java.util.Map;
 
 @Getter
 @Setter
-public class EmotionResultDto {
+public class aiEmotionDto {
     private String label;
-    private List<EmotionScoreDto> emotionScores;
+    private Map<String,Float> scores;
 }
