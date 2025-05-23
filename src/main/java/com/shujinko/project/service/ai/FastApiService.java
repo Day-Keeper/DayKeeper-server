@@ -18,7 +18,7 @@ import java.util.Map;
 public class FastApiService {
     
     private final ObjectMapper mapper;
-    private final static String url = "http://localhost:8000/analyze";
+    private final static String url = "https://woodcock-regular-partially.ngrok-free.app/analyze";
     
     @Autowired
     public FastApiService(ObjectMapper mapper) {
@@ -40,17 +40,22 @@ public class FastApiService {
         
         // <editor-fold desc="send request">
         RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.postForEntity(url, requestEntity, String.class);
+        
+        ResponseEntity<String> response = null;
+        aiResponseDto result = null;
+        try{
+            System.out.println("요청 URL: " + url);
+            response = restTemplate.postForEntity(url, requestEntity, String.class);
+            System.out.println("Raw 응답 문자열: " + response);
+            
+            result = mapper.readValue(response.getBody(), aiResponseDto.class);
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
         // </editor-fold>
         
-        aiResponseDto result = null;
-        // <editor-fold desc="JSON parsing">
-        try{
-            result =  mapper.readValue(response.getBody(), aiResponseDto.class);
-        }
-        catch(Exception e){
-            System.out.println("JSON parsing error!: " + e.getMessage());
-        }
+        
         return result;
         // </editor-fold>
     }

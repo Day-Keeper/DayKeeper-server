@@ -25,7 +25,7 @@ public class DiaryController {
         this.diaryService = diaryService;
     }
     
-    @PostMapping("/create")
+    @PostMapping("")
     public DiaryResponseDto createDiary(
             Authentication authentication,
             @RequestBody DiaryCreateDto diaryCreateDto) {

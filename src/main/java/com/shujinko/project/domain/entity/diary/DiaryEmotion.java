@@ -24,7 +24,7 @@ public class DiaryEmotion {
     @JoinColumn(name = "eid")//이 테이블에 DB에 "DiaryEmotion에 eid"라는 FK컬럼 생성
     private Emotion emotion;
     
-    private float score;
+    private double score;
     
     @Override
     public boolean equals(Object o) {

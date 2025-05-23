@@ -118,6 +118,10 @@ public class DiaryService {
         return responseDto;
     }
     
+    public List<DiaryResponseDto> createDiary(DiaryCreateDto createDto){
+        return null;
+    }
+    
     public List<DiaryResponseDto> getAllDiaries(DiaryRequestDto requestDto,String uid){
         
         User user = userRepository.findByUid(uid);
@@ -158,4 +162,5 @@ public class DiaryService {
         
         return result;
     }
+    
 }

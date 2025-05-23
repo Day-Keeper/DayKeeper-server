@@ -24,7 +24,7 @@ public class StatisticsController {
     
     
     @GetMapping("/top3WeekEmotions")
-    public List<EmotionCountDto> top3WEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month
+    public List<EmotionCountDto> topWEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month
     , @RequestParam int week) {
         String uid = authentication.getName();
         
@@ -32,7 +32,7 @@ public class StatisticsController {
     }
     
     @GetMapping("/top3MonthEmotions")
-    public List<EmotionCountDto> top3MEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month) {
+    public List<EmotionCountDto> topMEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month) {
         String uid = authentication.getName();
         
         return statisticsService.top3MothEmotion(uid,year,month);

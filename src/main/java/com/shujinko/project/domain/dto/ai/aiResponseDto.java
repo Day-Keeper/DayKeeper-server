@@ -12,4 +12,5 @@ import java.util.List;
 public class aiResponseDto {
     private List<ParagraphDto> paragraphs;
     private aiEmotionDto emotion;
+    private List<aiKeywordDto> keywords;
 }

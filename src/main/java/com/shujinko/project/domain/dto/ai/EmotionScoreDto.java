@@ -7,5 +7,5 @@ import lombok.Setter;
 @Setter
 public class EmotionScoreDto {
     private String emotion;
-    private Float score;
+    private Double score;
 }
