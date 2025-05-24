@@ -37,10 +37,10 @@ public class Diary {
     @Lob
     private String summary;
     
-    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL,fetch = FetchType.LAZY)
     private List<DiaryKeyword> diaryKeywords = new ArrayList<>();
     
-    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
     
     private String LabelEmotion = "";
@@ -54,7 +54,9 @@ public class Diary {
                 summary(this.summary).
                 label(this.LabelEmotion).
                 keywords(this.diaryKeywords.stream().map(DiaryKeyword::byString).toList()).
-                emotions(this.diaryEmotions.stream().map(DiaryEmotion::toEmotionScoreDto).toList()).build();
+                emotions(this.diaryEmotions.stream().map(DiaryEmotion::toEmotionScoreDto).toList()).
+                diaryId(this.id).build();
+        
     }
 }
 

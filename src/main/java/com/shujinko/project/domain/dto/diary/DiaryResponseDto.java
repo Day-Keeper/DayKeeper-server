@@ -22,4 +22,5 @@ public class DiaryResponseDto {
     private String label;
     private List<String> keywords;
     private List<EmotionScoreDto> emotions;
+    private Long diaryId;
 }

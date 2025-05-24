@@ -4,6 +4,7 @@ import com.shujinko.project.domain.dto.ai.*;
 import com.shujinko.project.domain.dto.diary.DiaryCreateDto;
 import com.shujinko.project.domain.dto.diary.DiaryRequestDto;
 import com.shujinko.project.domain.dto.diary.DiaryResponseDto;
+import com.shujinko.project.domain.dto.diary.DiaryUpdateDto;
 import com.shujinko.project.domain.entity.diary.*;
 import com.shujinko.project.domain.entity.user.User;
 import com.shujinko.project.repository.diary.*;
@@ -13,6 +14,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.AccessDeniedException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -20,6 +22,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -49,7 +52,6 @@ public class DiaryService {
     
     @Transactional
     public DiaryResponseDto createDiary(DiaryCreateDto createDto,String uid){
-        DiaryResponseDto responseDto = new DiaryResponseDto();
         aiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary());
         String rephrasedString = getResult(aiResponse);//일기 정리
         User user = userRepository.findByUid(uid);
@@ -100,6 +102,7 @@ public class DiaryService {
         }
         diaryEmotionRepository.saveAll(savingDiaryEmotions);
 // </editor-fold>
+// <editor-fold desc="Keyword정리">
         List<String> keywordStrings = aiResponse.getKeywords().stream()
                 .map(aiKeywordDto::getText)
                 .toList();
@@ -130,20 +133,17 @@ public class DiaryService {
             savingDiaryKeywords.add(dk);
         }
         diaryKeywordRepository.saveAll(savingDiaryKeywords);
-        
-        // </editor-fold>
-        
-        //<editor-fold desc = "-------responseDto 빌드-----------">
-        responseDto.setRawDiary(createDto.getRawDiary());
-        responseDto.setRephrasedDiary(rephrasedString);
-        responseDto.setCreatedAt(LocalDateTime.now());
-        responseDto.setSummary(null);
-        responseDto.setKeywords(keywordStrings);
-        responseDto.setEmotions(responsingEmotionScoreDtos);
-        responseDto.setLabel(aiResponse.getEmotion().getLabel());
-        //</editor-fold>
-
-        return responseDto;
+// </editor-fold>
+        return DiaryResponseDto.builder()
+                .rawDiary(createDto.getRawDiary())
+                .rephrasedDiary(rephrasedString)
+                .createdAt(LocalDateTime.now())
+                .summary(null)
+                .keywords(keywordStrings)
+                .emotions(responsingEmotionScoreDtos)
+                .label(aiResponse.getEmotion().getLabel())
+                .diaryId(diary.getId())
+                .build();
     }
     
     
@@ -156,25 +156,7 @@ public class DiaryService {
         LocalDateTime end = YearMonth.of(requestDto.getYear(),requestDto.getMonth())
                 .atEndOfMonth().atTime(23, 59, 59, 999_999_999);
         List<Diary> diaries = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, start, end);
-        
-        
-        // <editor-fold desc="build up DiaryResponseDto list">
-        List<DiaryResponseDto> result = new ArrayList<>();
-        diaries.forEach(diary -> {//각 다이어리에 대해서
-            DiaryResponseDto responseDto = DiaryResponseDto.builder()
-                    .rawDiary(diary.getRawDiary())
-                    .rephrasedDiary(diary.getRephrasedDiary())
-                    .createdAt(diary.getCreatedAt())
-                    .summary(diary.getSummary())
-                    .label(diary.getLabelEmotion())
-                    .keywords(null)
-                    .build();
-            List<EmotionScoreDto> emotionScoreDtos = getEmotionScoreDtos(diary);
-            responseDto.setEmotions(emotionScoreDtos);
-            result.add(responseDto);
-        });
-        // </editor-fold>
-        return result;
+        return diaryRepository.findByUser_UidAndCreatedAtBetween(uid,start,end).stream().map(Diary::toResponseDto).collect(Collectors.toList());
     }
     
     public List<DiaryResponseDto> getDiary(DiaryRequestDto requestDto,String uid){
@@ -183,6 +165,43 @@ public class DiaryService {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.atTime(LocalTime.MAX);
         return diaryRepository.findByUser_UidAndCreatedAtBetween(uid,start,end).stream().map(Diary::toResponseDto).collect(Collectors.toList());
+    }
+    
+    @Transactional
+    public void deleteDiary(Long diaryId, String uid) throws AccessDeniedException {
+        User user = userRepository.findByUid(uid);
+        Optional<Diary> diary = diaryRepository.findById(diaryId);
+        if(diary.isPresent()){
+            Diary d = diary.get();
+            if(d.getUser().getUid().equals(user.getUid())){
+                diaryRepository.delete(d);
+            }
+            else{
+                throw new AccessDeniedException("Diary is not owned by : " + uid);
+            }
+        }else{
+            throw new IllegalArgumentException("Diary not found");
+        }
+        
+    }
+    
+    @Transactional
+    public DiaryResponseDto updateDiary(DiaryUpdateDto updateDto,Long diaryId, String uid) throws AccessDeniedException {
+        User user = userRepository.findByUid(uid);
+        Optional<Diary> diary = diaryRepository.findById(diaryId);
+        if(diary.isPresent()){
+            Diary d = diary.get();
+            if(d.getUser().getUid().equals(user.getUid())){
+                d.setRawDiary(updateDto.getRawDiary());
+                return d.toResponseDto();
+            }
+            else {
+                throw new AccessDeniedException("Diary is not owned by : " + uid);
+            }
+        }
+        else{
+            throw new IllegalArgumentException("Diary not found");
+        }
     }
     
     
