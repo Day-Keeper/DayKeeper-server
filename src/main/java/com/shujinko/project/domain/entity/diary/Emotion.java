@@ -1,10 +1,7 @@
 package com.shujinko.project.domain.entity.diary;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +9,10 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Emotion {
     
     @Id
@@ -20,22 +20,9 @@ public class Emotion {
     private Long id;
     
     @Column(length = 20, unique = true, nullable = false)
-    private String emotion;
+    private String emotionStr;
     
-    @OneToMany(mappedBy = "emotion")
+    @OneToMany(mappedBy = "emotion", fetch = FetchType.LAZY)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
-    
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Emotion emotion = (Emotion) o;
-        return id != null && id.equals(emotion.id);
-    }
-    
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
 }
 

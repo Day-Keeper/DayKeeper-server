@@ -1,11 +1,11 @@
 package com.shujinko.project.controller.diary;
 
 import com.shujinko.project.domain.dto.diary.EmotionCountDto;
+import com.shujinko.project.domain.dto.diary.KeywordCountDto;
 import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.service.diary.StatisticsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,19 +23,34 @@ public class StatisticsController {
     }
     
     
-    @GetMapping("/top3WeekEmotions")
+    @GetMapping("/topWeekEmotions")
     public List<EmotionCountDto> topWEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month
     , @RequestParam int week) {
         String uid = authentication.getName();
         
-        return statisticsService.top3WeekEmotion(uid,year,month,week);
+        return statisticsService.topWeekEmotion(uid,year,month,week);
     }
     
-    @GetMapping("/top3MonthEmotions")
+    @GetMapping("/topMonthEmotions")
     public List<EmotionCountDto> topMEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month) {
         String uid = authentication.getName();
         
-        return statisticsService.top3MothEmotion(uid,year,month);
+        return statisticsService.topMonthEmotion(uid,year,month);
+    }
+    
+    @GetMapping("/topWeekKeywords")
+    public List<KeywordCountDto> topWKeywords(Authentication authentication, @RequestParam int year, @RequestParam int month
+            , @RequestParam int week) {
+        String uid = authentication.getName();
+        
+        return statisticsService.topWeekKeywords(uid,year,month,week);
+    }
+    
+    @GetMapping("/topMonthKeywords")
+    public List<KeywordCountDto> topMKeywords(Authentication authentication,@RequestParam int year, @RequestParam int month) {
+        String uid = authentication.getName();
+        
+        return statisticsService.topMonthKeywords(uid,year,month);
     }
 
 }

@@ -50,16 +50,13 @@ public class DiaryController {
     }
     
     @GetMapping("")
-    public DiaryResponseDto getDiary(Authentication authentication,
+    public List<DiaryResponseDto> getDiary(Authentication authentication,
                                      @RequestParam("year") int year,
                                      @RequestParam("month") int month,
                                      @RequestParam("day") int day){
-        DiaryRequestDto request = new DiaryRequestDto();
-        request.setYear(year);
-        request.setMonth(month);
-        request.setDay(day);
+        DiaryRequestDto request = DiaryRequestDto.builder().year(year).month(month).day(day).build();
         String uid = authentication.getName();
         
-        return null;
+        return diaryService.getDiary(request,uid);
     }
 }

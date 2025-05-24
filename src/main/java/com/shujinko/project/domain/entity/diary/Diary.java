@@ -1,5 +1,6 @@
 package com.shujinko.project.domain.entity.diary;
 
+import com.shujinko.project.domain.dto.diary.DiaryResponseDto;
 import com.shujinko.project.domain.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,6 +12,9 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 public class Diary {
     
@@ -18,7 +22,7 @@ public class Diary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uid")
     private User user;
     
@@ -33,33 +37,24 @@ public class Diary {
     @Lob
     private String summary;
     
-    @ManyToMany
-    @JoinTable(
-            name = "diary_keyword",
-            joinColumns = @JoinColumn(name = "did"),
-            inverseJoinColumns = @JoinColumn(name = "id")
-    )
-    private List<Keyword> keywords = new ArrayList<>();
+    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY)
+    private List<DiaryKeyword> diaryKeywords = new ArrayList<>();
     
-    @OneToMany(mappedBy = "diary",cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
     
     private String LabelEmotion = "";
     
     
-    
-    //<editor-fold desc="Functions">
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Diary diary = (Diary) o;
-        return id != null && id.equals(diary.id);
+    public DiaryResponseDto toResponseDto(){
+        return DiaryResponseDto.builder().
+                rawDiary(this.rawDiary).
+                rephrasedDiary(this.rephrasedDiary).
+                createdAt(this.createdAt).
+                summary(this.summary).
+                label(this.LabelEmotion).
+                keywords(this.diaryKeywords.stream().map(DiaryKeyword::byString).toList()).
+                emotions(this.diaryEmotions.stream().map(DiaryEmotion::toEmotionScoreDto).toList()).build();
     }
-    
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
-    //</editor-fold>
 }
+

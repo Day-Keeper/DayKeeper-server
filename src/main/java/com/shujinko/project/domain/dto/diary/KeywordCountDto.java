@@ -1,5 +1,6 @@
 package com.shujinko.project.domain.dto.diary;
 
+
 import lombok.*;
 
 @Getter
@@ -7,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class EmotionCountDto {
+public class KeywordCountDto {
     private String emotion;
     private Long count;
 }

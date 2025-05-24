@@ -9,6 +9,9 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 public class Keyword {
     
@@ -16,23 +19,10 @@ public class Keyword {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(length = 30)
-    private String keyword;
+    @Column(unique = true, length = 30, nullable = false)
+    private String keywordStr;
     
-    @ManyToMany(mappedBy = "keywords")
-    private List<Diary> diaries = new ArrayList<>();
-    
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Keyword keyword = (Keyword) o;
-        return id != null && id.equals(keyword.id);
-    }
-    
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
+    @OneToMany(mappedBy = "keyword", fetch = FetchType.LAZY)
+    private List<DiaryKeyword> diaryKeywords = new ArrayList<>();
 }
 

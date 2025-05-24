@@ -1,9 +1,10 @@
 package com.shujinko.project.domain.dto.diary;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Getter
 @Setter
 public class DiaryRequestDto {

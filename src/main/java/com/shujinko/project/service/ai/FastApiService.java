@@ -18,7 +18,7 @@ import java.util.Map;
 public class FastApiService {
     
     private final ObjectMapper mapper;
-    private final static String url = "https://woodcock-regular-partially.ngrok-free.app/analyze";
+    private final static String url = "http://52.79.171.211:8000/analyze";
     
     @Autowired
     public FastApiService(ObjectMapper mapper) {

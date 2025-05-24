@@ -1,17 +1,14 @@
 package com.shujinko.project.service.diary;
 
-import com.shujinko.project.domain.dto.diary.DiaryResponseDto;
 import com.shujinko.project.domain.dto.diary.EmotionCountDto;
+import com.shujinko.project.domain.dto.diary.KeywordCountDto;
 import com.shujinko.project.domain.entity.diary.Diary;
 import com.shujinko.project.repository.diary.DiaryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -25,24 +22,40 @@ public class StatisticsService {
         this.diaryRepository = diaryRepository;
     }
     
-    public List<EmotionCountDto> top3WeekEmotion(String uid, int year, int month, int weekNumber){
+    public List<KeywordCountDto> topWeekKeywords(String uid, int year, int month, int weekNumber){
+        LocalDate[] startEndWeek = getWeekRange(year,month,weekNumber);
+        LocalDateTime start = LocalDateTime.of(startEndWeek[0], LocalTime.MIN);
+        LocalDateTime end = LocalDateTime.of(startEndWeek[1], LocalTime.MAX);
+        
+        return getTopKeyword(uid, start, end);
+    }
+    
+    public List<KeywordCountDto> topMonthKeywords(String uid, int year, int month){
+        LocalDate[] startEndMonth = getMonthRange(year,month);
+        LocalDateTime start = LocalDateTime.of(startEndMonth[0], LocalTime.MIN);
+        LocalDateTime end = LocalDateTime.of(startEndMonth[1], LocalTime.MAX);
+        return getTopKeyword(uid, start, end);
+    }
+    
+    
+    public List<EmotionCountDto> topWeekEmotion(String uid, int year, int month, int weekNumber){
         LocalDate[] startEndWeek = getWeekRange(year,month,weekNumber);
         
         LocalDateTime start = LocalDateTime.of(startEndWeek[0], LocalTime.MIN);
         LocalDateTime end = LocalDateTime.of(startEndWeek[1], LocalTime.MAX);
         
-        return getTop3Emotion(uid, start, end);
+        return getTopEmotion(uid, start, end);
     }
     
-    public List<EmotionCountDto> top3MothEmotion(String uid, int year, int month){
+    public List<EmotionCountDto> topMonthEmotion(String uid, int year, int month){
         LocalDate[] startEndMonth = getMonthRange(year,month);
         LocalDateTime start = LocalDateTime.of(startEndMonth[0], LocalTime.MIN);
         LocalDateTime end = LocalDateTime.of(startEndMonth[1], LocalTime.MAX);
-        return getTop3Emotion(uid, start, end);
+        return getTopEmotion(uid, start, end);
     }
     
     
-    private List<EmotionCountDto> getTop3Emotion(String uid, LocalDateTime start, LocalDateTime end) {
+    private List<EmotionCountDto> getTopEmotion(String uid, LocalDateTime start, LocalDateTime end) {
         List<Diary> diaryList = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, start, end);
         
         System.out.println("-----------diaryList-------" + diaryList);
@@ -57,9 +70,31 @@ public class StatisticsService {
         
         return frequencyMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(3)
                 .map(e -> new EmotionCountDto(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
+    }
+    
+    private List<KeywordCountDto> getTopKeyword(String uid, LocalDateTime start, LocalDateTime end) {
+        List<Diary> diaryList = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, start, end);
+        
+        System.out.println("-----------diaryList-------" + diaryList);
+        System.out.println("Start : " + start + "\n End : " + end);
+        
+        Map<String, Long> frequencyMap = diaryList.stream()
+                .flatMap(diary -> diary.getDiaryKeywords().stream())         // 모든 Diary의 DiaryKeyword 펼침
+                .map(diaryKeyword -> diaryKeyword.getKeyword().getKeywordStr()) // KeywordStr 추출
+                .collect(Collectors.groupingBy(
+                        Function.identity(),        // keywordStr 자체가 key
+                        Collectors.counting()       // 빈도수 value
+                ));
+        
+        List<KeywordCountDto> top3Keywords = frequencyMap.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())) // value 내림차순
+                .limit(10) // 상위 3개만
+                .map(entry -> new KeywordCountDto(entry.getKey(), entry.getValue()))
+                .toList();
+        
+        return top3Keywords;
     }
     
     /**

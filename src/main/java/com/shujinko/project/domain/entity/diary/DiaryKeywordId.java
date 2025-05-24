@@ -1,13 +1,12 @@
 package com.shujinko.project.domain.entity.diary;
 
+
 import jakarta.persistence.Embeddable;
 import lombok.*;
 
 import java.io.Serializable;
 import java.util.Objects;
-/**
- * 복합키
- * */
+
 @Embeddable
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,9 +14,8 @@ import java.util.Objects;
 @Setter
 @EqualsAndHashCode
 @Getter
-public class DiaryEmotionId implements Serializable {
+public class DiaryKeywordId implements Serializable {
     
     private Long did;
-    private Long eid;
+    private Long kid;
 }
-
