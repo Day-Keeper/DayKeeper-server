@@ -4,6 +4,7 @@ import com.shujinko.project.domain.dto.diary.EmotionCountDto;
 import com.shujinko.project.domain.dto.diary.KeywordCountDto;
 import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.service.diary.StatisticsService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/statistics")
+@SecurityRequirement(name = "Bearer Authentication")
 public class StatisticsController {
     
     private final JwtTokenProvider jwtTokenProvider;

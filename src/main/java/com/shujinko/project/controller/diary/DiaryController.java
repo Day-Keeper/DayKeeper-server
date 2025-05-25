@@ -7,6 +7,7 @@ import com.shujinko.project.domain.dto.diary.DiaryResponseDto;
 import com.shujinko.project.domain.dto.diary.DiaryUpdateDto;
 import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.service.diary.DiaryService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,6 +17,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/diary")
+@SecurityRequirement(name = "Bearer Authentication")
 public class DiaryController {
     
     JwtTokenProvider jwtTokenProvider;

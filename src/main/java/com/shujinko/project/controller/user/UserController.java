@@ -2,13 +2,14 @@ package com.shujinko.project.controller.user;
 
 
 import com.shujinko.project.service.user.UserService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 @Controller
+@RequestMapping("/user")
+@SecurityRequirement(name = "Bearer Authentication")
 public class UserController {
-    
-    
     private final UserService userService;
     
     UserController(UserService userService) {
