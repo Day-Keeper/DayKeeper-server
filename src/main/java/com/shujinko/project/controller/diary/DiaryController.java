@@ -8,19 +8,26 @@ import com.shujinko.project.domain.dto.diary.DiaryUpdateDto;
 import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.service.diary.DiaryService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/diary")
 @SecurityRequirement(name = "Bearer Authentication")
 public class DiaryController {
     
+    private final Logger logger = LoggerFactory.getLogger(DiaryController.class);
     JwtTokenProvider jwtTokenProvider;
     DiaryService diaryService;
     @Autowired
@@ -76,6 +83,21 @@ public class DiaryController {
                                         , @RequestBody DiaryUpdateDto diaryUpdateDto) throws Exception{
         String uid = authentication.getName();
         return diaryService.updateDiary(diaryUpdateDto,id,uid);
+    }
+    
+    @PostMapping(value = "/photoDiary", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DiaryResponseDto> createPhotoDiary(Authentication authentication,
+                                             @RequestPart DiaryCreateDto diaryCreateDto,
+                                             @RequestPart("photo")List<MultipartFile> photoFile){
+        
+        return null;
+    }
+    
+    @GetMapping("/reset")
+    public void reset(Authentication authentication) {
+        String uid = authentication.getName();
+        diaryService.resetStat(uid);
+        
     }
     
 }

@@ -29,7 +29,8 @@ public class StatisticsController {
     @GetMapping("/oneSentenceKeyword")
     public OneSentence oneSetenceKeyword(Authentication authentication,@RequestParam int year, @RequestParam int month
             , @RequestParam int week) {
-        return statisticsService.oneSentenceKeyword(year, month, week);
+        String uid = authentication.getName();
+        return statisticsService.oneSentenceKeyword(uid,year, month, week);
     }
     
     @GetMapping("/topWeekEmotions")
@@ -61,5 +62,6 @@ public class StatisticsController {
         
         return statisticsService.topMonthKeywords(uid,year,month);
     }
+    
 
 }

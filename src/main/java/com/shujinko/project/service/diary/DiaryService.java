@@ -14,16 +14,12 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.AccessDeniedException;
-import java.security.Key;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.IsoFields;
-import java.time.temporal.TemporalAdjusters;
-import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -37,21 +33,21 @@ public class DiaryService {
     private final FastApiService fastApiService;
     private final EmotionRepository emotionRepository;
     private final KeywordRepository keywordRepository;
+    private final StatisticsService statisticsService;
     private final WeeklyKeywordStatRepository weeklyKeywordStatRepository;
     
     @Autowired
     public DiaryService(DiaryRepository diaryRepository, UserRepository userRepository,
                         FastApiService fastApiService, EmotionRepository emotionRepository,
-                        KeywordRepository keywordRepository, WeeklyKeywordStatRepository weeklyKeywordStatRepository) {
+                        KeywordRepository keywordRepository,StatisticsService statisticsService, WeeklyKeywordStatRepository weeklyKeywordStatRepository) {
         this.diaryRepository = diaryRepository;
         this.userRepository = userRepository;
         this.fastApiService = fastApiService;
         this.emotionRepository = emotionRepository;
         this.keywordRepository = keywordRepository;
+        this.statisticsService = statisticsService;
         this.weeklyKeywordStatRepository = weeklyKeywordStatRepository;
     }
-    
-    private record KeywordLabelKey(String keywordStr, String label){}
     
     @Transactional
     public DiaryResponseDto createDiary(DiaryCreateDto createDto, String uid) {
@@ -75,7 +71,7 @@ public class DiaryService {
         //Keyword 저장
         processAndLinkKeywords(diary, aiResponse.getKeywords());
         //주간 통계
-        updateWeeklyKeywordStatisticsAsync(uid, diaryDate);
+        statisticsService.updateKeywordStatistics(uid, diaryDate);
         
         long endTime = System.nanoTime();
         double duration = (endTime - overallStartTime) / 1_000_000_000.0;
@@ -115,7 +111,7 @@ public class DiaryService {
             res = d.getCreatedAt();
             if(d.getUser().getUid().equals(user.getUid())){
                 diaryRepository.delete(d);
-                updateWeeklyKeywordStatisticsAsync(uid,res.toLocalDate());
+                statisticsService.updateKeywordStatistics(uid,res.toLocalDate());
             }
             else{
                 throw new AccessDeniedException("Diary is not owned by : " + uid);
@@ -148,77 +144,6 @@ public class DiaryService {
             rephrased.append("\n\n");
         }
         return rephrased.toString();
-    }
-    
-    @Async // 이 메서드를 비동기적으로 실행
-    @Transactional // 이 메서드 자체를 하나의 트랜잭션으로 관리
-    public void updateWeeklyKeywordStatisticsAsync(String uid, LocalDate diaryDate) {
-        try {
-            // 비동기 작업이므로, 호출한 쪽의 트랜잭션과 분리됨.
-            // User 객체를 uid로부터 다시 조회하는 것이 안전.
-            User user = userRepository.findByUid(uid);
-            if (user == null) {
-                System.err.println("비동기 통계 업데이트: 사용자 '" + uid + "'를 찾을 수 없습니다.");
-                return; // 또는 적절한 예외 로깅
-            }
-            
-            System.out.println(Thread.currentThread().getName() + ": 비동기 주간 키워드 통계 업데이트 시작 for User " + uid + ", Date " + diaryDate);
-            
-            int year = diaryDate.getYear();
-            int weekOfYear = diaryDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR); // ISO 8601 주차
-            
-            LocalDate startOfWeekDate = diaryDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
-            LocalDate endOfWeekDate = diaryDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
-            LocalDateTime startOfWeekDateTime = startOfWeekDate.atStartOfDay();
-            LocalDateTime endOfWeekDateTime = endOfWeekDate.atTime(LocalTime.MAX);
-            
-            List<Diary> weeklyDiaries = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, startOfWeekDateTime, endOfWeekDateTime);
-            
-            Map<KeywordLabelKey, Long> keywordCounts = weeklyDiaries.stream() // 1. 스트림 생성
-                    .flatMap(d -> d.getDiaryKeywords().stream())             // 2. 모든 DiaryKeyword를 하나의 스트림으로 펼치기
-                    .map(dk -> new KeywordLabelKey(                          // 3. (keywordStr, label) 쌍으로 구성된 KeywordLabelKey 객체 생성
-                            dk.getKeyword().getKeywordStr(),
-                            dk.getKeyword().getLabel()                       // Keyword 엔티티의 label 가져오기
-                    ))
-                    .collect(Collectors.groupingBy(                          // 4. 그룹화 및 빈도수 계산
-                            Function.identity(),                             //    KeywordLabelKey 객체 자체를 그룹화의 키로 사용
-                            Collectors.counting()                            //    각 키(KeywordLabelKey)의 등장 횟수 계산
-                    ));
-// ▲▲▲ 키워드 빈도수 계산 부분 수정 ▲▲▲
-            
-            weeklyKeywordStatRepository.deleteByUserAndYearAndWeekOfYear(user, year, weekOfYear);
-
-// ▼▼▼ 새로운 Top 5 키워드 통계 생성 부분 수정 ▼▼▼
-            List<WeeklyKeywordStat> newWeeklyStats = keywordCounts.entrySet().stream()
-                    .sorted(Map.Entry.<KeywordLabelKey, Long>comparingByValue().reversed() // 빈도수 내림차순 정렬
-                            // (선택) 빈도수가 같을 경우, 키워드 텍스트와 레이블로 추가 정렬하여 일관성 확보
-                            .thenComparing(entry -> entry.getKey().keywordStr())
-                            .thenComparing(entry -> {
-                                String lbl = entry.getKey().label();
-                                return lbl == null ? "" : lbl; // null 레이블 처리
-                            }))
-                    .limit(5)
-                    .map(entry -> WeeklyKeywordStat.builder()
-                            .user(user)
-                            .year(year)
-                            .weekOfYear(weekOfYear)
-                            .keywordStr(entry.getKey().keywordStr()) // KeywordLabelKey에서 keywordStr 추출
-                            .label(entry.getKey().label())         // KeywordLabelKey에서 label 추출 (WeeklyKeywordStat에 label 필드 추가 필요)
-                            .frequency(entry.getValue())
-                            .build())
-                    .collect(Collectors.toList());
-            
-            if (!newWeeklyStats.isEmpty()) {
-                weeklyKeywordStatRepository.saveAll(newWeeklyStats);
-                System.out.println(Thread.currentThread().getName() + ": 비동기 주간 Top 5 키워드 통계 DB 저장 완료 (" + year + "-W" + weekOfYear + ") for user " + uid);
-            } else {
-                System.out.println(Thread.currentThread().getName() + ": 비동기 주간 키워드 통계: 저장할 키워드 없음 (" + year + "-W" + weekOfYear + ") for user " + uid);
-            }
-        } catch (Exception e) {
-            // 비동기 작업 중 발생하는 예외는 호출자에게 직접 전달되지 않으므로, 여기서 처리해야 함.
-            System.err.println(Thread.currentThread().getName() + ": 비동기 주간 키워드 통계 업데이트 중 오류 발생 for user " + uid + ", date " + diaryDate);
-            e.printStackTrace(); // 실제 환경에서는 보다 정교한 에러 로깅 및 알림 처리 필요
-        }
     }
     
     private User findUserByUid(String uid) {
@@ -372,14 +297,49 @@ public class DiaryService {
         }
     }
     
-    private void logOverallProcessingTime(long overallStartTimeNanos, long aiProcessingDurationNanos) {
-        long overallEndTimeNanos = System.nanoTime();
-        long overallDurationNanos = overallEndTimeNanos - overallStartTimeNanos;
-        // AI 처리 시간을 제외한 순수 Java 로직 처리 시간 계산 가능
-        // long javaLogicDurationNanos = overallDurationNanos - aiProcessingDurationNanos;
-        double overallSeconds = overallDurationNanos / 1_000_000_000.0;
-        System.out.println("Total Diary creation (sync part) took: " + overallSeconds + " seconds");
+    @Transactional
+    public void resetStat(String uid){
+        List<Diary> diaries = diaryRepository.findAll();
+        for(Diary diary : diaries){
+            statisticsService.updateKeywordStatistics(uid,diary.getCreatedAt().toLocalDate());
+        }
     }
     
+    @Transactional
+    public void createPhotoDiary(String uid, DiaryCreateDto createDto, List<MultipartFile> photos){
+        long overallStartTime = System.nanoTime();
+        //유저 찾기
+        User user = findUserByUid(uid);
+        //날짜 파싱
+        LocalDate diaryDate = LocalDate.parse(createDto.getDiaryDate(), DateTimeFormatter.ISO_LOCAL_DATE);
+        //해당 날짜 일기 없는지 찾기
+        validateDiaryDoesNotExistForDate(uid, diaryDate);
+        //AI 응답
+        long aiStartTime = System.nanoTime();
+        aiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary());
+        double secs = logAiProcessingTime(aiStartTime);
+        //정제된 일기 줄바꿈
+        String rephrasedString = getResult(aiResponse);
+        //save(diary)
+        Diary diary = createAndSaveInitialDiary(user, createDto.getRawDiary(), rephrasedString, diaryDate.atTime(11,0), aiResponse.getEmotion().getLabel(),aiResponse.getSummary());
+        processAndLinkPhotos(diary,aiResponse.getParagraphs());
+        //Emotion 저장
+        processAndLinkEmotions(diary, aiResponse.getEmotion().getScores());
+        //Keyword 저장
+        processAndLinkKeywords(diary, aiResponse.getKeywords());
+        //주간 통계
+        statisticsService.updateKeywordStatistics(uid, diaryDate);
+        
+        long endTime = System.nanoTime();
+        double duration = (endTime - overallStartTime) / 1_000_000_000.0;
+        double dur = duration - secs;
+        logger.info("----------------------Diary creation time : [{}]-------------------",dur);
+        return diary.toResponseDto();
+    }
+    
+    private void processAndLinkPhotos(Diary diary, List<ParagraphDto> paragraphs) {
+        List<Photo> photos = new ArrayList<>();
+        
+    }
     
 }

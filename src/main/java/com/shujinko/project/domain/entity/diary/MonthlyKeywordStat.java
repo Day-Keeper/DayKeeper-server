@@ -5,19 +5,17 @@ import com.shujinko.project.domain.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "weekly_keyword_stat", indexes = {
-        @Index(name = "idx_weekly_keyword_stat_user_year_week", columnList = "uid, weekOfYear")
+@Table(name = "monthly_keyword_stat", indexes = {
+        // 월별 통계에 맞게 인덱스 변경: user, year, month 기준으로 조회 및 정렬
+        @Index(name = "idx_monthly_keyword_stat_user_year_month", columnList = "uid, year, month")
 })
-public class WeeklyKeywordStat {
+public class MonthlyKeywordStat {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,20 +26,26 @@ public class WeeklyKeywordStat {
     private User user;
     
     @Column(nullable = false)
-    private LocalDate weekOfYear;
+    private int year;
     
-    @Column(length = 30, nullable = false) // Keyword의 keywordStr과 길이 일치 또는 적절히 조절
+    @Column(nullable = false)
+    private int month;
+    
+    @Column(length = 30, nullable = false)
     private String keywordStr;
     
     @Column(length=30)
-    private String label;
+    private String label; // 레이블 필드
     
     @Column(nullable = false)
-    private Long frequency;
+    private Long frequency; // 빈도수 필드
     
-    
+    // KeywordCountDto 변환 메서드 (기존과 동일하게 유지)
     public KeywordCountDto toKeywordCountDto() {
-        return KeywordCountDto.builder().
-                keyword(keywordStr).label(label).count(frequency).build();
+        return KeywordCountDto.builder()
+                .keyword(keywordStr)
+                .label(label)
+                .count(frequency)
+                .build();
     }
 }

@@ -10,4 +10,6 @@ import lombok.*;
 public class ParagraphDto {
     private String subject;
     private String content;
+    private String matched_image;
+    private String image_caption;
 }

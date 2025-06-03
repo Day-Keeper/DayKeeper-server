@@ -1,4 +1,4 @@
-package com.shujinko.project;
+package com.shujinko.project.config;
 
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
