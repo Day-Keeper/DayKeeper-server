@@ -2,12 +2,17 @@ package com.shujinko.project.service.diary;
 
 import com.shujinko.project.domain.dto.diary.EmotionCountDto;
 import com.shujinko.project.domain.dto.diary.KeywordCountDto;
+import com.shujinko.project.domain.dto.diary.OneSentence;
 import com.shujinko.project.domain.entity.diary.Diary;
+import com.shujinko.project.domain.entity.diary.WeeklyKeywordStat;
 import com.shujinko.project.repository.diary.DiaryRepository;
+import com.shujinko.project.repository.diary.WeeklyKeywordStatRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
+import java.time.temporal.IsoFields;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -16,25 +21,46 @@ import java.util.stream.Collectors;
 public class StatisticsService {
     
     private final DiaryRepository diaryRepository;
-    
+    private final WeeklyKeywordStatRepository weeklyKeywordStatRepository;
     @Autowired
-    public StatisticsService(DiaryRepository diaryRepository) {
+    public StatisticsService(DiaryRepository diaryRepository, WeeklyKeywordStatRepository weeklyKeywordStatRepository) {
         this.diaryRepository = diaryRepository;
+        this.weeklyKeywordStatRepository = weeklyKeywordStatRepository;
+    }
+    
+    public OneSentence oneSentenceKeyword(int year, int month, int weekNumber){
+        LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
+        LocalDate firstSunday = firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        LocalDate weekStart =  firstSunday.plusWeeks(weekNumber - 1);
+        int weekOfYear = weekStart.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        
+        List<WeeklyKeywordStat> stats= weeklyKeywordStatRepository.findByWeekOfYear(weekOfYear);
+        WeeklyKeywordStat randomStat = null;
+        
+        if (stats != null && !stats.isEmpty()) {
+            Random random = new Random();
+            int randomIndex = random.nextInt(stats.size());
+            randomStat = stats.get(randomIndex);
+        }
+        return new OneSentence("이번주 에는 [" + randomStat.getKeywordStr()+"] 키워드가 ["+randomStat.getFrequency()+"]번 등장했네요!");
     }
     
     public List<KeywordCountDto> topWeekKeywords(String uid, int year, int month, int weekNumber){
-        LocalDate[] startEndWeek = getWeekRange(year,month,weekNumber);
-        LocalDateTime start = LocalDateTime.of(startEndWeek[0], LocalTime.MIN);
-        LocalDateTime end = LocalDateTime.of(startEndWeek[1], LocalTime.MAX);
+        LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
+        LocalDate firstSunday = firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        LocalDate weekStart =  firstSunday.plusWeeks(weekNumber - 1);
+        int weekOfYear = weekStart.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
         
-        return getTopKeyword(uid, start, end);
+        List<WeeklyKeywordStat> stats= weeklyKeywordStatRepository.findByWeekOfYear(weekOfYear);
+        
+        return stats.stream().map(WeeklyKeywordStat::toKeywordCountDto).toList();
     }
     
     public List<KeywordCountDto> topMonthKeywords(String uid, int year, int month){
         LocalDate[] startEndMonth = getMonthRange(year,month);
         LocalDateTime start = LocalDateTime.of(startEndMonth[0], LocalTime.MIN);
         LocalDateTime end = LocalDateTime.of(startEndMonth[1], LocalTime.MAX);
-        return getTopKeyword(uid, start, end);
+        return null;
     }
     
     
@@ -74,28 +100,6 @@ public class StatisticsService {
                 .collect(Collectors.toList());
     }
     
-    private List<KeywordCountDto> getTopKeyword(String uid, LocalDateTime start, LocalDateTime end) {
-        List<Diary> diaryList = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, start, end);
-        
-        System.out.println("-----------diaryList-------" + diaryList);
-        System.out.println("Start : " + start + "\n End : " + end);
-        
-        Map<String, Long> frequencyMap = diaryList.stream()
-                .flatMap(diary -> diary.getDiaryKeywords().stream())         // 모든 Diary의 DiaryKeyword 펼침
-                .map(diaryKeyword -> diaryKeyword.getKeyword().getKeywordStr()) // KeywordStr 추출
-                .collect(Collectors.groupingBy(
-                        Function.identity(),        // keywordStr 자체가 key
-                        Collectors.counting()       // 빈도수 value
-                ));
-        
-        List<KeywordCountDto> top3Keywords = frequencyMap.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())) // value 내림차순
-                .limit(10) // 상위 3개만
-                .map(entry -> new KeywordCountDto(entry.getKey(), entry.getValue()))
-                .toList();
-        
-        return top3Keywords;
-    }
     
     /**
      * 특정 년/월/주의 [첫날/마지막날]의 날짜 리턴

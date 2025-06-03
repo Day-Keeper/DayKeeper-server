@@ -11,6 +11,7 @@ import java.util.List;
 @Setter
 public class aiResponseDto {
     private List<ParagraphDto> paragraphs;
+    private String summary;
     private aiEmotionDto emotion;
     private List<aiKeywordDto> keywords;
 }

@@ -10,5 +10,5 @@ import lombok.*;
 @Setter
 public class DiaryCreateDto {
     private String rawDiary;
-    
+    private String diaryDate;
 }

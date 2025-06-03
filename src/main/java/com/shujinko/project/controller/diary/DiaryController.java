@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/diary")
@@ -50,13 +51,16 @@ public class DiaryController {
     }
     
     @GetMapping("")
-    public List<DiaryResponseDto> getDiary(Authentication authentication,
+    public ResponseEntity<DiaryResponseDto> getDiary(Authentication authentication,
                                      @RequestParam("year") int year,
                                      @RequestParam("month") int month,
                                      @RequestParam("day") int day){
         DiaryRequestDto request = DiaryRequestDto.builder().year(year).month(month).day(day).build();
         String uid = authentication.getName();
-        return diaryService.getDiary(request,uid);
+        Optional<DiaryResponseDto> diaryDtoOptional = diaryService.getDiary(request,uid);
+        return diaryDtoOptional
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
     
     @DeleteMapping("/{id}")

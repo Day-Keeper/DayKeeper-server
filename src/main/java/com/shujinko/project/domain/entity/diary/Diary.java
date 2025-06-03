@@ -37,7 +37,7 @@ public class Diary {
     @Lob
     private String summary;
     
-    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL,fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DiaryKeyword> diaryKeywords = new ArrayList<>();
     
     @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -53,7 +53,7 @@ public class Diary {
                 createdAt(this.createdAt).
                 summary(this.summary).
                 label(this.LabelEmotion).
-                keywords(this.diaryKeywords.stream().map(DiaryKeyword::byString).toList()).
+                keywords(this.diaryKeywords.stream().map(DiaryKeyword::toAiKeywordDto).toList()).
                 emotions(this.diaryEmotions.stream().map(DiaryEmotion::toEmotionScoreDto).toList()).
                 diaryId(this.id).build();
         

@@ -9,6 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class KeywordCountDto {
-    private String emotion;
+    private String keyword;
+    private String label;
     private Long count;
 }

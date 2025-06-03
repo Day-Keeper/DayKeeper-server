@@ -1,5 +1,6 @@
 package com.shujinko.project.domain.entity.diary;
 
+import com.shujinko.project.domain.dto.ai.aiKeywordDto;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,5 +28,18 @@ public class DiaryKeyword {
     
     public String byString(){
         return keyword.getKeywordStr();
+    }
+    
+    public aiKeywordDto toAiKeywordDto(){
+        if(keyword != null) {
+            return aiKeywordDto.builder().
+                    text(keyword.getKeywordStr()).
+                    label(keyword.getLabel()).
+                    build();
+        }
+        return aiKeywordDto.builder().
+                text(keyword.getKeywordStr()).
+                label(null).
+                build();
     }
 }

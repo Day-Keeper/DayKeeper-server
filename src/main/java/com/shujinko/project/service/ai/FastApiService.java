@@ -45,7 +45,12 @@ public class FastApiService {
         aiResponseDto result = null;
         try{
             System.out.println("요청 URL: " + url);
+            long startTime = System.nanoTime(); // 요청 보내기 직전 시간 기록
             response = restTemplate.postForEntity(url, requestEntity, String.class);
+            long endTime = System.nanoTime(); // 응답 받은 직후 시간 기록
+            long durationNano = endTime - startTime;
+            double durationSeconds = (double) durationNano / 1_000_000_000.0;
+            System.out.printf("AI 응답 수신 시간: %.3f 초%n", durationSeconds); // 초 단위로 출력
             System.out.println("Raw 응답 문자열: " + response);
             
             result = mapper.readValue(response.getBody(), aiResponseDto.class);

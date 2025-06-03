@@ -2,7 +2,10 @@ package com.shujinko.project.repository.diary;
 
 import com.shujinko.project.domain.entity.diary.Keyword;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.security.Key;
 import java.util.List;
 import java.util.Optional;
 

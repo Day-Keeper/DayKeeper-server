@@ -2,6 +2,7 @@ package com.shujinko.project.controller.diary;
 
 import com.shujinko.project.domain.dto.diary.EmotionCountDto;
 import com.shujinko.project.domain.dto.diary.KeywordCountDto;
+import com.shujinko.project.domain.dto.diary.OneSentence;
 import com.shujinko.project.provider.JwtTokenProvider;
 import com.shujinko.project.service.diary.StatisticsService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -24,6 +25,12 @@ public class StatisticsController {
         this.statisticsService = statisticsService;
     }
     
+    
+    @GetMapping("/oneSentenceKeyword")
+    public OneSentence oneSetenceKeyword(Authentication authentication,@RequestParam int year, @RequestParam int month
+            , @RequestParam int week) {
+        return statisticsService.oneSentenceKeyword(year, month, week);
+    }
     
     @GetMapping("/topWeekEmotions")
     public List<EmotionCountDto> topWEmotions(Authentication authentication,@RequestParam int year, @RequestParam int month
