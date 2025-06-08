@@ -4,19 +4,16 @@ import com.shujinko.project.domain.dto.diary.EmotionCountDto;
 import com.shujinko.project.domain.dto.diary.KeywordCountDto;
 import com.shujinko.project.domain.dto.diary.KeywordLabelKey;
 import com.shujinko.project.domain.dto.diary.OneSentence;
-import com.shujinko.project.domain.entity.diary.Diary;
-import com.shujinko.project.domain.entity.diary.MonthlyKeywordStat;
-import com.shujinko.project.domain.entity.diary.WeeklyKeywordStat;
+import com.shujinko.project.domain.entity.diary.*;
 import com.shujinko.project.domain.entity.user.User;
-import com.shujinko.project.repository.diary.DiaryRepository;
-import com.shujinko.project.repository.diary.MonthlyKeywordStatRepository;
-import com.shujinko.project.repository.diary.WeeklyKeywordStatRepository;
+import com.shujinko.project.repository.diary.*;
 import com.shujinko.project.repository.user.UserRepository;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
@@ -35,17 +32,27 @@ public class StatisticsService {
     private final WeeklyKeywordStatRepository weeklyKeywordStatRepository;
     private final UserRepository userRepository;
     private final MonthlyKeywordStatRepository monthlyKeywordStatRepository;
-    
+    private final Day7KeywordStatRepository day7KeywordStatRepository;
+    private final Day30KeywordStatRepository day30KeywordStatRepository;
+    private final EmotionRepository emotionRepository;
+    private final DiarySuggestionService diarySuggestionService;
     @Autowired
     public StatisticsService(DiaryRepository diaryRepository, WeeklyKeywordStatRepository weeklyKeywordStatRepository
-    , UserRepository userRepository, MonthlyKeywordStatRepository monthlyKeywordStatRepository) {
+    , UserRepository userRepository, MonthlyKeywordStatRepository monthlyKeywordStatRepository,
+                             Day7KeywordStatRepository day7KeywordStatRepository,
+                             Day30KeywordStatRepository day30KeywordStatRepository, EmotionRepository emotionRepository,
+                             DiarySuggestionService diarySuggestionService) {
         this.diaryRepository = diaryRepository;
         this.weeklyKeywordStatRepository = weeklyKeywordStatRepository;
         this.userRepository = userRepository;
         this.monthlyKeywordStatRepository = monthlyKeywordStatRepository;
+        this.day7KeywordStatRepository = day7KeywordStatRepository;
+        this.day30KeywordStatRepository = day30KeywordStatRepository;
+        this.emotionRepository = emotionRepository;
+        this.diarySuggestionService = diarySuggestionService;
     }
     
-    public OneSentence oneSentenceKeyword(String uid, int year, int month, int weekNumber){
+    public OneSentence oneSentenceKeyword(String uid) throws Exception {
         Optional<User> opUser = userRepository.findById(uid);
         User user = null;
         if(opUser.isPresent()){
@@ -54,32 +61,28 @@ public class StatisticsService {
             return new OneSentence("알맞은 유저가 없는데요");
         }
         
+        List<Day7KeywordStat> stats= day7KeywordStatRepository.findByUser(user);
+        List<EmotionCountDto> emotions = day7Emotion(uid);
         
-        LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
-        LocalDate firstSunday = firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
-        LocalDate weekStart =  firstSunday.plusWeeks(weekNumber - 1);
+        KeywordEmotion keywordEmotion = new KeywordEmotion();
+        keywordEmotion.setKeywords(stats.stream().limit(5).collect(Collectors.toMap(Day7KeywordStat::getKeywordStr,Day7KeywordStat::getFrequency)));
+        keywordEmotion.setEmotions(
+                emotions.stream().limit(5).collect(Collectors.toMap(EmotionCountDto::getEmotion,EmotionCountDto::getCount)));
         
-        List<WeeklyKeywordStat> stats= weeklyKeywordStatRepository.findByUserAndWeekOfYear(user,weekStart);
-        WeeklyKeywordStat randomStat = null;
-        
-        if (stats != null && !stats.isEmpty()) {
-            Random random = new Random();
-            int randomIndex = random.nextInt(stats.size());
-            randomStat = stats.get(randomIndex);
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion);
+        String sentence = oneSentence.getSentence();
+        if (sentence != null && !sentence.isEmpty()) {
+            return oneSentence;
         }else{
             return new OneSentence("이번주는 등장한 키워드가 없네요!");
         }
-        return new OneSentence("이번주 에는 [" + randomStat.getKeywordStr()+"] 키워드가 ["+randomStat.getFrequency()+"]번 등장했네요!");
     }
     
+    /**
+     * 미리계산한 주간 통계 리턴*/
     public List<KeywordCountDto> topWeekKeywords(String uid, int year, int month, int weekNumber){
-        Optional<User> opUser = userRepository.findById(uid);
-        User user = null;
-        if(opUser.isPresent()){
-            user = opUser.get();
-        }else{
-            return null;
-        }
+        User user = getUser(uid);
+        if (user == null) return null;
         
         LocalDate firstDayOfMonth = LocalDate.of(year, month, 1); //그 달의 첫날
         LocalDate firstSunday = firstDayOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
@@ -89,6 +92,10 @@ public class StatisticsService {
         return stats.stream().map(WeeklyKeywordStat::toKeywordCountDto).toList();
     }
     
+    
+    
+    /**
+     * 미리계산한 월간 통계 리턴*/
     public List<KeywordCountDto> topMonthKeywords(String uid, int year, int month){
         User user = userRepository.findByUid(uid);
         LocalDate[] startEndMonth = getMonthRange(year,month);
@@ -96,39 +103,61 @@ public class StatisticsService {
         LocalDateTime end = LocalDateTime.of(startEndMonth[1], LocalTime.MAX);
         return monthlyKeywordStatRepository.findByUserAndYearAndMonth(user,year,month).stream().map(MonthlyKeywordStat::toKeywordCountDto).toList();
     }
-    
+    public List<KeywordCountDto> day7Keywords(String uid){
+        User user = getUser(uid);
+        return day7KeywordStatRepository.findByUser(user).stream().map(Day7KeywordStat::toKeywordCountDto).toList();
+    }
+    public List<KeywordCountDto> day30Keywords(String uid){
+        User user = getUser(uid);
+        return day30KeywordStatRepository.findByUser(user).stream().map(Day30KeywordStat::toKeywordCountDto).toList();
+    }
     
     public List<EmotionCountDto> topWeekEmotion(String uid, int year, int month, int weekNumber){
         LocalDate[] startEndWeek = getWeekRange(year,month,weekNumber);
-        
         LocalDateTime start = LocalDateTime.of(startEndWeek[0], LocalTime.MIN);
         LocalDateTime end = LocalDateTime.of(startEndWeek[1], LocalTime.MAX);
-        
         return getTopEmotion(uid, start, end);
     }
-    
     public List<EmotionCountDto> topMonthEmotion(String uid, int year, int month){
         LocalDate[] startEndMonth = getMonthRange(year,month);
         LocalDateTime start = LocalDateTime.of(startEndMonth[0], LocalTime.MIN);
         LocalDateTime end = LocalDateTime.of(startEndMonth[1], LocalTime.MAX);
         return getTopEmotion(uid, start, end);
     }
-    
+    public List<EmotionCountDto> day7Emotion(String uid){
+        LocalDate now = LocalDate.now();
+        LocalDate day7before = now.minusDays(7);
+        LocalDateTime start = LocalDateTime.of(day7before, LocalTime.MIN);
+        LocalDateTime end = LocalDateTime.of(now, LocalTime.MAX);
+        return getTopEmotion(uid, start, end);
+    }
+    public List<EmotionCountDto> day30Emotion(String uid){
+        LocalDate now = LocalDate.now();
+        LocalDate day30before = now.minusMonths(1);
+        LocalDateTime start = LocalDateTime.of(day30before, LocalTime.MIN);
+        LocalDateTime end = LocalDateTime.of(now, LocalTime.MAX);
+        return getTopEmotion(uid, start, end);
+    }
     
     private List<EmotionCountDto> getTopEmotion(String uid, LocalDateTime start, LocalDateTime end) {
         List<Diary> diaryList = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, start, end);
+        List<Emotion> emotionList = emotionRepository.findAll();
+        Map<String,Long> freqMap = emotionList.stream().collect(Collectors.toMap(Emotion::getEmotionStr,
+                emotion -> 0L,
+                (existingValue,newValue)->existingValue));
+        Map<String, Long> frequencyMap = diaryList.stream()//감정들의 횟수 추가
+                .map(Diary::getLabelEmotion)
+                .filter(emotion -> emotion != null && !emotion.isEmpty())
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        
+        freqMap.putAll(frequencyMap);
         
         System.out.println("-----------diaryList-------" + diaryList);
         System.out.println("Start : " + start + "\n End : " + end);
         
-        Map<String, Long> frequencyMap = diaryList.stream()
-                .map(Diary::getLabelEmotion)//각 diary에서 감정이름만 추출
-                .filter(emotion -> emotion != null && !emotion.isEmpty())
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        System.out.println(freqMap);
         
-        System.out.println(frequencyMap);
-        
-        return frequencyMap.entrySet().stream()
+        return freqMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .map(e -> new EmotionCountDto(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
@@ -183,10 +212,13 @@ public class StatisticsService {
         return new LocalDate[]{firstDay, lastDay};
     }
     
+    
+    //-----업데이트 함수--------------
     @Async // 이 메서드를 비동기적으로 실행
-    @Transactional // 이 메서드 자체를 하나의 트랜잭션으로 관리
+    @Transactional
     public void updateKeywordStatistics(String uid, LocalDate diaryDate) {
         Object lock = userLocks.computeIfAbsent(uid, k -> new Object());
+        final int topN = 20;//몇개 뽑을건지 고름
         synchronized (lock) {
             try {
                 User user = userRepository.findByUid(uid);
@@ -217,7 +249,7 @@ public class StatisticsService {
                                     String lbl = entry.getKey().label();
                                     return lbl == null ? "" : lbl;
                                 }))
-                        .limit(5)
+                        .limit(topN)
                         .map(entry -> WeeklyKeywordStat.builder()
                                 .user(user)
                                 .weekOfYear(weekStart)
@@ -253,7 +285,7 @@ public class StatisticsService {
                                     String lbl = entry.getKey().label();
                                     return lbl == null ? "" : lbl; // null 레이블 처리
                                 }))
-                        .limit(5)
+                        .limit(topN)
                         .map(entry -> MonthlyKeywordStat.builder()
                                 .user(user)
                                 .year(year)
@@ -278,6 +310,123 @@ public class StatisticsService {
         }
     }
     
+    @Async
+    @Transactional
+    public void updateDay7KeywordStats(String uid, LocalDate diaryDate){
+        Object lock = userLocks.computeIfAbsent(uid, k -> new Object());
+        synchronized (lock){
+            try {
+                User user = userRepository.findById(uid).orElse(null);
+                if(user == null){
+                    logger.info("updateDay7KeywordStats : user {} 를 찾을 수 없음.",uid);
+                }
+                logger.info("updateDay7KeywordStats : user {} 시작 ",uid);
+                LocalDate now = LocalDate.now();
+                LocalDate sevenDaysAgo = now.minusDays(7);
+                if(diaryDate.isBefore(sevenDaysAgo)){//7일보다 전이면
+                   logger.debug("updateDay7KeywordStats : user {} 7일 보다 전, 갱신안함",uid);
+                   return;
+                }
+                LocalDateTime today = now.atTime(LocalTime.MAX);
+                LocalDateTime day7Ago = sevenDaysAgo.atTime(LocalTime.MIN);
+                Map<KeywordLabelKey, Long> day7Counts =  getKeywordCountMap(uid, day7Ago, today);
+                
+                day7KeywordStatRepository.deleteByUser(user);
+                
+                List<Day7KeywordStat> newDay7Stats = day7Counts.entrySet().stream()
+                        .sorted(Map.Entry.<KeywordLabelKey, Long>comparingByValue().reversed() // 빈도수 내림차순 정렬
+                                .thenComparing(entry -> entry.getKey().keywordStr())
+                                .thenComparing(entry -> {
+                                    String lbl = entry.getKey().label();
+                                    return lbl == null ? "" : lbl;
+                                }))
+                        .limit(5)
+                        .map(entry -> Day7KeywordStat.builder()
+                                .user(user)
+                                .keywordStr(entry.getKey().keywordStr())
+                                .label(entry.getKey().label())
+                                .frequency(entry.getValue())
+                        .build())
+                        .toList();
+               
+                if(!newDay7Stats.isEmpty()){
+                    day7KeywordStatRepository.saveAll(newDay7Stats);
+                    logger.info("updateDay7KeywordStats : user {} 성공",uid);
+                }else{
+                    logger.info("updateDay7KeywordStats : user {} 추가할 keyword 없음",uid);
+                }
+                logger.info("updateDay7KeywordStats : user {} 종료 ",uid);
+            }catch(Exception e){
+                logger.info("updateDay7KeywordStats : user {} error!",uid);
+            }
+        }
+    }
+    
+    @Async
+    @Transactional
+    public void updateDay30KeywordStats(String uid, LocalDate diaryDate){
+        Object lock = userLocks.computeIfAbsent(uid, k -> new Object());
+        synchronized (lock){
+            try {
+                User user = userRepository.findById(uid).orElse(null);
+                if(user == null){
+                    logger.info("updateDay30KeywordStats : user {} 를 찾을 수 없음.",uid);
+                }
+                logger.info("updateDay30KeywordStats : user {} 시작 ",uid);
+                LocalDate now = LocalDate.now();
+                LocalDate sevenDaysAgo = now.minusDays(30);
+                if(diaryDate.isBefore(sevenDaysAgo)){//30일보다 전이면
+                    logger.debug("updateDay30KeywordStats : user {} 30일 보다 전, 갱신안함",uid);
+                    return;
+                }
+                LocalDateTime today = now.atTime(LocalTime.MAX);
+                LocalDateTime day30Ago = sevenDaysAgo.atTime(LocalTime.MIN);
+                Map<KeywordLabelKey, Long> day7Counts =  getKeywordCountMap(uid, day30Ago, today);
+                
+                day30KeywordStatRepository.deleteByUser(user);
+                
+                List<Day30KeywordStat> newDay30Stats = day7Counts.entrySet().stream()
+                        .sorted(Map.Entry.<KeywordLabelKey, Long>comparingByValue().reversed() // 빈도수 내림차순 정렬
+                                .thenComparing(entry -> entry.getKey().keywordStr())
+                                .thenComparing(entry -> {
+                                    String lbl = entry.getKey().label();
+                                    return lbl == null ? "" : lbl;
+                                }))
+                        .limit(5)
+                        .map(entry -> Day30KeywordStat.builder()
+                                .user(user)
+                                .keywordStr(entry.getKey().keywordStr())
+                                .label(entry.getKey().label())
+                                .frequency(entry.getValue())
+                                .build())
+                        .toList();
+                if(!newDay30Stats.isEmpty()){
+                    day30KeywordStatRepository.saveAll(newDay30Stats);
+                    logger.info("updateDay30KeywordStats : user {} 성공",uid);
+                }else{
+                    logger.info("updateDay30KeywordStats : user {} 추가할 keyword 없음",uid);
+                }
+                logger.info("updateDay30KeywordStats : user {} 종료 ",uid);
+            }catch(Exception e){
+                logger.info("updateDay30KeywordStats : user {} error!",uid);
+            }
+        }
+    }
+    
+    @Transactional
+    @Async
+    @Scheduled(cron = "0 0 0 * * *")
+    public void updateAll(){
+        List<User> users = userRepository.findAll();
+        for (User user : users) {
+            logger.info("Scheduled updateAll for user {} : 시작 ",user.getUid());
+            updateDay30KeywordStats(user.getUid(), LocalDate.now());
+            updateDay7KeywordStats(user.getUid(), LocalDate.now());
+        }
+    }
+    
+    
+    //---------------유틸리티 함수----------
     private Map<KeywordLabelKey,Long> getKeywordCountMap(String uid, LocalDateTime startOfMonthDateTime, LocalDateTime endOfMonthDateTime) {
         List<Diary> diaries = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, startOfMonthDateTime, endOfMonthDateTime);
         
@@ -292,5 +441,15 @@ public class StatisticsService {
                         Collectors.counting()                            //    각 키(KeywordLabelKey)의 등장 횟수 계산
                 ));
         return KeywordCounts;
+    }
+    private User getUser(String uid) {
+        Optional<User> opUser = userRepository.findById(uid);
+        User user = null;
+        if(opUser.isPresent()){
+            user = opUser.get();
+        }else{
+            return null;
+        }
+        return user;
     }
 }

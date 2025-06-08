@@ -7,4 +7,5 @@ import lombok.Setter;
 @Getter
 public class LoginRequest {
     private String idToken;
+    private String accessToken;
 }

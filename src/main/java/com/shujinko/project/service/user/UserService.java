@@ -14,13 +14,6 @@ public class UserService {
         this.userRepository = userRepository;
     }
     
-//    public String join(User user) {
-//        if(isNewUser(user)) {userRepository.save(user); return "success";}
-//        return "fail";
-//    }
-    
-//    private boolean isNewUser(User user) {
-//        return userRepository.findByEmail(user.getGoogle()) == null;
-//    }
+    //public
     
 }

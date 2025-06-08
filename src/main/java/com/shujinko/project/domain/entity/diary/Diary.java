@@ -29,8 +29,8 @@ public class Diary {
     @Lob
     private String rawDiary;
     
-    @Lob
-    private String rephrasedDiary;
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL,fetch = FetchType.LAZY)
+    private List<Paragraph> paragraphs = new ArrayList<>();
     
     private LocalDateTime createdAt;
     
@@ -43,16 +43,13 @@ public class Diary {
     @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
     
-    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Photo> photos = new ArrayList<>();
-    
     private String LabelEmotion = "";
     
     
     public DiaryResponseDto toResponseDto(){
         return DiaryResponseDto.builder().
                 rawDiary(this.rawDiary).
-                rephrasedDiary(this.rephrasedDiary).
+                paragraph(paragraphs.stream().map(Paragraph::toDto).toList()).
                 createdAt(this.createdAt).
                 summary(this.summary).
                 label(this.LabelEmotion).

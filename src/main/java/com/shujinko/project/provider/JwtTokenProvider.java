@@ -8,22 +8,27 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Date;
 import java.util.List;
 
 @Component
 public class JwtTokenProvider {
 
+    private Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
+    
     @Value("${jwt.secret}")
     private String secretKeyString;
 
-    private SecretKey secretKey;
+    private Key secretKey;
 
     @PostConstruct
     protected void init() {
@@ -45,19 +50,19 @@ public class JwtTokenProvider {
                 .setClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
-                .signWith(SignatureAlgorithm.HS256, secretKey)
+                .signWith(secretKey)
                 .compact();
     }
 
     public String createRefreshToken(String uid) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + 1209600000L); // 2주
-
+        
         return Jwts.builder()
                 .setSubject(uid)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
-                .signWith(SignatureAlgorithm.HS256, secretKey)
+                .signWith(secretKey)
                 .compact();
     }
 
@@ -78,10 +83,10 @@ public class JwtTokenProvider {
     * */
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);//jwt 파서생성(토큰이 올바르게 서명(secretKey로)됐는지/만료안됐는지/형식이 유효한지 체크
+            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);//secretKey로 파서 만들고(build), token을 파시아하고 유효성검증함
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            System.out.println("JWT 검증 실패: " + e.getMessage());
+            logger.error("JWT 검증 실패 : {}", e.getMessage());
             return false;
         }
     }

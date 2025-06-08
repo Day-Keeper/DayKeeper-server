@@ -14,9 +14,11 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -34,52 +36,23 @@ public class DiaryService {
     private final EmotionRepository emotionRepository;
     private final KeywordRepository keywordRepository;
     private final StatisticsService statisticsService;
-    private final WeeklyKeywordStatRepository weeklyKeywordStatRepository;
+    private final ImageServingService imageServingService;
+    @Value("${file.upload-dir}")
+    private String uploadDir;
     
     @Autowired
     public DiaryService(DiaryRepository diaryRepository, UserRepository userRepository,
                         FastApiService fastApiService, EmotionRepository emotionRepository,
-                        KeywordRepository keywordRepository,StatisticsService statisticsService, WeeklyKeywordStatRepository weeklyKeywordStatRepository) {
+                        KeywordRepository keywordRepository,StatisticsService statisticsService,
+                        ImageServingService imageServingService) {
         this.diaryRepository = diaryRepository;
         this.userRepository = userRepository;
         this.fastApiService = fastApiService;
         this.emotionRepository = emotionRepository;
         this.keywordRepository = keywordRepository;
         this.statisticsService = statisticsService;
-        this.weeklyKeywordStatRepository = weeklyKeywordStatRepository;
+        this.imageServingService = imageServingService;
     }
-    
-    @Transactional
-    public DiaryResponseDto createDiary(DiaryCreateDto createDto, String uid) {
-        long overallStartTime = System.nanoTime();
-        //유저 찾기
-        User user = findUserByUid(uid);
-        //날짜 파싱
-        LocalDate diaryDate = LocalDate.parse(createDto.getDiaryDate(), DateTimeFormatter.ISO_LOCAL_DATE);
-        //해당 날짜 일기 없는지 찾기
-        validateDiaryDoesNotExistForDate(uid, diaryDate);
-        //AI 응답
-        long aiStartTime = System.nanoTime();
-        aiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary());
-        double secs = logAiProcessingTime(aiStartTime);
-        //정제된 일기 줄바꿈
-        String rephrasedString = getResult(aiResponse);
-        //save(diary)
-        Diary diary = createAndSaveInitialDiary(user, createDto.getRawDiary(), rephrasedString, diaryDate.atTime(11,0), aiResponse.getEmotion().getLabel(),aiResponse.getSummary());
-        //Emotion 저장
-        processAndLinkEmotions(diary, aiResponse.getEmotion().getScores());
-        //Keyword 저장
-        processAndLinkKeywords(diary, aiResponse.getKeywords());
-        //주간 통계
-        statisticsService.updateKeywordStatistics(uid, diaryDate);
-        
-        long endTime = System.nanoTime();
-        double duration = (endTime - overallStartTime) / 1_000_000_000.0;
-        double dur = duration - secs;
-        logger.info("----------------------Diary creation time : [{}]-------------------",dur);
-        return diary.toResponseDto();
-    }
-    
     
     public List<DiaryResponseDto> getAllDiaries(DiaryRequestDto requestDto,String uid){
         
@@ -92,7 +65,6 @@ public class DiaryService {
         List<Diary> diaries = diaryRepository.findByUser_UidAndCreatedAtBetween(uid, start, end);
         return diaryRepository.findByUser_UidAndCreatedAtBetween(uid,start,end).stream().map(Diary::toResponseDto).collect(Collectors.toList());
     }
-    
     public Optional<DiaryResponseDto> getDiary(DiaryRequestDto requestDto,String uid){
         User user = userRepository.findByUid(uid);
         LocalDate date = LocalDate.of(requestDto.getYear(),requestDto.getMonth(),requestDto.getDay());
@@ -112,6 +84,8 @@ public class DiaryService {
             if(d.getUser().getUid().equals(user.getUid())){
                 diaryRepository.delete(d);
                 statisticsService.updateKeywordStatistics(uid,res.toLocalDate());
+                statisticsService.updateDay30KeywordStats(uid, res.toLocalDate());
+                statisticsService.updateDay7KeywordStats(uid, res.toLocalDate());
             }
             else{
                 throw new AccessDeniedException("Diary is not owned by : " + uid);
@@ -123,18 +97,15 @@ public class DiaryService {
     }
     
     @Transactional
-    public DiaryResponseDto updateDiary(DiaryUpdateDto updateDto,Long diaryId, String uid) throws AccessDeniedException {
-        
+    public DiaryResponseDto updateDiary(DiaryUpdateDto updateDto,Long diaryId, String uid,List<MultipartFile> photos) throws AccessDeniedException, IOException {
         String date = deleteDiary(diaryId, uid);
         DiaryCreateDto createDto = new DiaryCreateDto();
         createDto.setDiaryDate(date);
         createDto.setRawDiary(updateDto.getRawDiary());
-        return createDiary(createDto, uid);
+        return createPhotoDiary(uid, createDto,photos);
     }
     
-    
     /*--------------------유틸리티 함수-----------------*/
-    
     private static String getResult(aiResponseDto aiResponse) {
         StringBuilder rephrased = new StringBuilder();
         for(ParagraphDto p : aiResponse.getParagraphs()) {
@@ -172,17 +143,16 @@ public class DiaryService {
         return secs;
     }
     
-    
     private Diary createAndSaveInitialDiary(User user, String rawDiary, String rephrasedDiary, LocalDateTime createdAt, String labelEmotion,String sum) {
         Diary diary = Diary.builder()
                 .user(user)
                 .rawDiary(rawDiary)
-                .rephrasedDiary(rephrasedDiary)
                 .createdAt(createdAt)
                 .summary(sum) // 요약은 나중에 채워질 수 있음
                 .LabelEmotion(labelEmotion)
                 .diaryKeywords(new ArrayList<>())
                 .diaryEmotions(new ArrayList<>())
+                .paragraphs(new ArrayList<>())
                 .build();
         return diaryRepository.save(diary); // DiaryEmotion, DiaryKeyword 연결 전에 ID 확보 위해 먼저 저장
     }
@@ -229,8 +199,6 @@ public class DiaryService {
             currentDiaryEmotions.add(addingEmotion);
         });
     }
-    
-    
     private void processAndLinkKeywords(Diary diary, List<aiKeywordDto> aiKeywordDtos) {
         if (aiKeywordDtos == null) aiKeywordDtos = Collections.emptyList();
         
@@ -302,11 +270,13 @@ public class DiaryService {
         List<Diary> diaries = diaryRepository.findAll();
         for(Diary diary : diaries){
             statisticsService.updateKeywordStatistics(uid,diary.getCreatedAt().toLocalDate());
+            statisticsService.updateDay7KeywordStats(uid,diary.getCreatedAt().toLocalDate());
+            statisticsService.updateDay30KeywordStats(uid,diary.getCreatedAt().toLocalDate());
         }
     }
     
     @Transactional
-    public void createPhotoDiary(String uid, DiaryCreateDto createDto, List<MultipartFile> photos){
+    public DiaryResponseDto createPhotoDiary(String uid, DiaryCreateDto createDto, List<MultipartFile> photos) throws IOException {
         long overallStartTime = System.nanoTime();
         //유저 찾기
         User user = findUserByUid(uid);
@@ -314,32 +284,49 @@ public class DiaryService {
         LocalDate diaryDate = LocalDate.parse(createDto.getDiaryDate(), DateTimeFormatter.ISO_LOCAL_DATE);
         //해당 날짜 일기 없는지 찾기
         validateDiaryDoesNotExistForDate(uid, diaryDate);
+        //Photo들 저장
+        Map<String,MultipartFile> photoUrls = new HashMap<>();
+        if(photos != null) {
+            for (MultipartFile photo : photos) {//이름 바꾸고 저장하고
+                String originalFilename = photo.getOriginalFilename();
+                String fileExtension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1);
+                String fileName = UUID.randomUUID().toString() + "." + fileExtension;
+                imageServingService.saveImage(photo, fileName);
+                photoUrls.put(fileName, photo);
+            }
+        }
         //AI 응답
         long aiStartTime = System.nanoTime();
-        aiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary());
+        aiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary(),photoUrls);
         double secs = logAiProcessingTime(aiStartTime);
         //정제된 일기 줄바꿈
         String rephrasedString = getResult(aiResponse);
         //save(diary)
         Diary diary = createAndSaveInitialDiary(user, createDto.getRawDiary(), rephrasedString, diaryDate.atTime(11,0), aiResponse.getEmotion().getLabel(),aiResponse.getSummary());
-        processAndLinkPhotos(diary,aiResponse.getParagraphs());
+        //paragraph설정
+        List<Paragraph> paragraphs = diary.getParagraphs();
+        for(ParagraphDto paragraphDto : aiResponse.getParagraphs()){
+            Paragraph paragraph = Paragraph.builder()
+                    .diary(diary)
+                    .subject(paragraphDto.getSubject())
+                    .content(paragraphDto.getContent())
+                    .photoURL(paragraphDto.getMatched_image()).build();
+            paragraphs.add(paragraph);
+        }
         //Emotion 저장
         processAndLinkEmotions(diary, aiResponse.getEmotion().getScores());
         //Keyword 저장
         processAndLinkKeywords(diary, aiResponse.getKeywords());
         //주간 통계
         statisticsService.updateKeywordStatistics(uid, diaryDate);
+        statisticsService.updateDay30KeywordStats(uid, diaryDate);
+        statisticsService.updateDay7KeywordStats(uid, diaryDate);
         
         long endTime = System.nanoTime();
         double duration = (endTime - overallStartTime) / 1_000_000_000.0;
         double dur = duration - secs;
         logger.info("----------------------Diary creation time : [{}]-------------------",dur);
         return diary.toResponseDto();
-    }
-    
-    private void processAndLinkPhotos(Diary diary, List<ParagraphDto> paragraphs) {
-        List<Photo> photos = new ArrayList<>();
-        
     }
     
 }

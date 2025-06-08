@@ -27,10 +27,9 @@ public class StatisticsController {
     
     
     @GetMapping("/oneSentenceKeyword")
-    public OneSentence oneSetenceKeyword(Authentication authentication,@RequestParam int year, @RequestParam int month
-            , @RequestParam int week) {
+    public OneSentence oneSetenceKeyword(Authentication authentication) throws Exception{
         String uid = authentication.getName();
-        return statisticsService.oneSentenceKeyword(uid,year, month, week);
+        return statisticsService.oneSentenceKeyword(uid);
     }
     
     @GetMapping("/topWeekEmotions")
@@ -48,6 +47,17 @@ public class StatisticsController {
         return statisticsService.topMonthEmotion(uid,year,month);
     }
     
+    @GetMapping("/day7Emotions")
+    public List<EmotionCountDto> day7Emotions(Authentication authentication){
+        String uid = authentication.getName();
+        return statisticsService.day7Emotion(uid);
+    }
+    @GetMapping("/day30Emotions")
+    public List<EmotionCountDto> day30Emotions(Authentication authentication){
+        String uid = authentication.getName();
+        return statisticsService.day30Emotion(uid);
+    }
+    
     @GetMapping("/topWeekKeywords")
     public List<KeywordCountDto> topWKeywords(Authentication authentication, @RequestParam int year, @RequestParam int month
             , @RequestParam int week) {
@@ -61,6 +71,18 @@ public class StatisticsController {
         String uid = authentication.getName();
         
         return statisticsService.topMonthKeywords(uid,year,month);
+    }
+    
+    @GetMapping("/day7Keywords")
+    public List<KeywordCountDto> day7Keywords(Authentication authentication) {
+        String uid = authentication.getName();
+        return statisticsService.day7Keywords(uid);
+    }
+    
+    @GetMapping("/day30Keywords")
+    public List<KeywordCountDto> day30Keywords(Authentication authentication) {
+        String uid = authentication.getName();
+        return statisticsService.day30Keywords(uid);
     }
     
 

@@ -14,43 +14,48 @@ java {
 }
 
 repositories {
+	google()
 	mavenCentral()
 }
 
 dependencies {
+	// Spring Boot Starters
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+	// Database & API Docs
 	implementation 'mysql:mysql-connector-java:8.0.33'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-	//google cloud(gemini)
+	// Google Libraries (BOMs)
 	implementation platform('com.google.cloud:libraries-bom:26.61.0')
 
-	// google-cloud-vertexai 의존성에는 버전을 명시하지 않습니다 (BOM이 관리).
+	// Google Libraries (Managed by BOMs, declared once without version)
 	implementation 'com.google.cloud:google-cloud-vertexai'
+	implementation 'com.google.firebase:firebase-admin:9.3.0'
+	implementation 'com.google.api-client:google-api-client:2.4.0'
+	implementation 'com.google.oauth-client:google-oauth-client-jetty:1.35.0'
+	implementation 'com.google.http-client:google-http-client-gson:1.44.1'
+	implementation 'com.google.apis:google-api-services-people:v1-rev20240313-2.0.0'
 
-	// Firebase Admin SDK
-	implementation 'com.google.firebase:firebase-admin:9.4.3'
-	implementation 'com.google.api-client:google-api-client:1.34.1'
-	implementation 'com.google.oauth-client:google-oauth-client-jetty:1.34.1'
-	implementation 'com.google.http-client:google-http-client-gson:1.43.3'
-
-	// JJWT (for JWT creation)
+	// JWT Libraries
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5' // JSON serializer
-
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 	implementation 'com.auth0:java-jwt:4.4.0'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// Jackson & Lombok
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
-
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+	// JUnit
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {

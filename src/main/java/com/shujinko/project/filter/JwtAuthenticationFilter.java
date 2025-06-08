@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +18,7 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
@@ -26,12 +29,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        System.out.println("필터 진입: " + path);
+        logger.info("필터 진입: {}",path);
 
         // /auth는 무조건 통과
         if (path.startsWith("/auth")) {
-            System.out.println("필터 예외 처리: " + path);
-            filterChain.doFilter(request, response);
+            logger.info("필터 예외 처리: " +path);
+            filterChain.doFilter(request, response);//다음 필터 OR 컨트롤러로 요청을 넘김
             return;
         }
 
@@ -45,9 +48,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // 토큰 있을 경우 검증
-        if (jwtTokenProvider.validateToken(token)) {
+        if (jwtTokenProvider.validateToken(token)) {//토큰이 올바른지 검증
             Authentication auth = jwtTokenProvider.getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(auth);
+            SecurityContextHolder.getContext().setAuthentication(auth);//
         }
 
         filterChain.doFilter(request, response);
