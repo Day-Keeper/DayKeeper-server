@@ -12,6 +12,8 @@ import com.shujinko.project.domain.dto.ai.GeminiSuggestion;
 import com.shujinko.project.domain.dto.ai.SuggestionRequest;
 import com.shujinko.project.domain.dto.diary.OneSentence;
 import com.shujinko.project.domain.entity.diary.KeywordEmotion;
+import com.shujinko.project.domain.entity.user.User;
+import com.shujinko.project.repository.user.UserRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,9 +30,11 @@ import java.util.Map;
 public class DiarySuggestionService {
     
     private final ObjectMapper objMapper;
+    private final UserRepository userRepository;
     
-    public DiarySuggestionService(ObjectMapper objMapper) {
+    public DiarySuggestionService(ObjectMapper objMapper, UserRepository userRepository) {
         this.objMapper = objMapper;
+        this.userRepository = userRepository;
     }
     
     public enum GeminiModels{
@@ -62,7 +67,7 @@ public class DiarySuggestionService {
                         너는 사용자의 일기 작성을 돕는 섬세하고 통찰력 있는 AI 에이전트야.
                         지금 사용자는 일기의 다음 내용으로 어떤 이야기를 적을지 고민하는 상황에 있어.
                         너의 목표는 아래 주어지는 사용자의 일기을 바탕으로, 그날의 경험과 감정을 더 깊이 탐색하고 하루의 경험을 더 풍부하고 생생하게 표현하도록 영감을 주는 질문이나 문장 제안을 하는 거야.
-                        두번째 너의 핵심 역할은 사용자가 묘사한 특정 사건이나 감정의 파도가 지나간 **'그 다음'**으로 시점을 옮겨주는 것이다. 사용자의 글이 멈춘 지점에서, 그 행동의 **결과**나 그로 인해 파생된 **감정의 여운**에 대해 질문해야 한다. 사용자가 스스로 "아, 그 다음엔 어땠지?"라고 생각하게 만들어라.
+                        두번째 너의 핵심 역할은 사용자가 묘사한 특정 사건이나 감정의 파도가 지나간 **'그 다음'**으로 시점을 옮겨주는 것이다. 사용자의 글이 멈춘 지점에서, 그 행동의 **결과**나 그로 인해 파생된 **감정의 여운**에 대해 질문해야 한다. 사용자가 스스로 "아, 그 다음엔 어땠지?"라고 생각하게 만들어.
                         
                         
                         **RULES:**
@@ -76,6 +81,10 @@ public class DiarySuggestionService {
 -Be careful not to fixate on a specific person, event, or emotion. Broaden the perspective by looking at the entire diary entry, switching the topic, or asking about other surrounding situations.
 -Be careful to not deep dive into user's emotion and thinking, read the whole diary and just give a light touch to those emotion.
 -Instead of using a command tone like "Try doing~," gently guide the user with a declarative or interrogative sentence.
+                **Exceptons:**
+-if user did not provide any diary content, give him a silly and fun suggestion. Be playful and humorous and Create a light-hearted atmosphere.
+                    **BAD EXAMPLE:**
+                        
                         """;
         
         Content suggestionSysInstruction = Content.newBuilder()
@@ -90,7 +99,7 @@ public class DiarySuggestionService {
         
         String weekSentenceSysPrompt =  """
 [역할(Role)]
-당신은 사용자의 한 주를 통찰하고, 그에 맞는 가볍고 실천적인 조언을 건네는 현명한 조력자입니다.
+당신은 사용자의 [다음 기간의 (키워드,감정)들 {오늘 기준 7일전, 오늘 기준 30일전까지, m번째달 n번째주, m번째 달}]을 통찰하고 그 기간을 가볍게 요약해주고 칭찬하거나 위로하며, 그에 맞는 가볍고 실천적인 조언을 건네는 현명한 조력자입니다.
 
 [핵심 임무(Core Mission)]
 1.  **핵심 테마 선정:** 입력된 여러 감정과 키워드 중에서, 가장 빈도가 높고 서로 연관성이 깊은 **핵심 테마(dominant theme)를 단 하나만** 찾아냅니다. (예: '불안' 감정과 '프로젝트', '마감일' 키워드 조합)
@@ -130,7 +139,7 @@ public class DiarySuggestionService {
 ### 예시 2
 - 입력: { "emotions": {"성취감": 4, "뿌듯함": 2}, "keywords": {"운동": 5, "아침 루틴": 3} }
 - 출력:
-몸은 고단했어도 꾸준한 운동으로 성취감을 느끼며 스스로를 다잡은 한 주였네요.
+[지난 1주일, 지난 한달, n월m번째 주, n월]은 몸은 고단했어도 꾸준한 운동으로 성취감을 느끼며 스스로를 다잡은 한 주였네요.
 이번 주말, 작은 성취를 이뤄낸 스스로에게 좋아하는 음료 한 잔을 선물해주는건 어떨까요?
 - 부가 설명 : 이런 긍정적인 감정과 키워드는 더 기분좋은 하루를 보낼 수 있게 부추겨주는 말을 적어줘.
 """;
@@ -145,13 +154,18 @@ public class DiarySuggestionService {
                 .build());
     }
 
-    public GeminiSuggestion getDiarySuggestion(SuggestionRequest request) throws IOException {
+    public GeminiSuggestion getDiarySuggestion(String uid, SuggestionRequest request) throws IOException {
         long startTime = System.currentTimeMillis();
-
+        User user = userRepository.findByUid(uid);
+        LocalDate birth = user.getBirthday();
+        LocalDate now = LocalDate.now();
+        int age = java.time.Period.between(birth, now).getYears();
+        String ageStr = String.valueOf(age);
+        
         // 사용자 프롬프트: 시스템 지침은 모델 초기화 시 설정했으므로, 여기서는 실제 일기 내용과 최종 요청만 전달
         String userPromptText = String.format(
-                "[Diary Start]\n%s\n[Diary End]\n\n",
-                request.getRawDiary()
+                "[Diary Start]\n%s\n[Diary End] %s의 나이에 맞는 어투로 추천해줘.\n\n",
+                request.getRawDiary(),ageStr
         );
 
         GenerateContentResponse response = models.get(GeminiModels.SUGGESTION).generateContent(userPromptText);
@@ -173,16 +187,16 @@ public class DiarySuggestionService {
         }
     }
     
-    public OneSentence getWeekOneSentence(KeywordEmotion keywordEmotion) throws IOException {
+    public OneSentence getWeekOneSentence(KeywordEmotion keywordEmotion,String range) throws IOException {
         try{
             String jsonData = objMapper.writerWithDefaultPrettyPrinter().writeValueAsString(keywordEmotion);
             
             String userPrompt = String.format("""
-                    내 일주일간의 감정 및 키워드 데이터야. 이걸 분석해서 조언해줘.
+                    [%s] 기간의 감정 및 키워드 데이터야. 이걸 분석해서 조언해줘.
                     ```json
                     %s
                     ```
-                    """, jsonData);
+                    """, range,jsonData);
             var response = models.get(GeminiModels.ONE_SENTENCE_WEEK).generateContent(userPrompt);
             
             return new OneSentence(ResponseHandler.getText(response));

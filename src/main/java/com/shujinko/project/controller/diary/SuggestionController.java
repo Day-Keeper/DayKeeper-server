@@ -23,6 +23,7 @@ public class SuggestionController {
     }
     @PostMapping
     public GeminiSuggestion getSuggestion(Authentication authentication, @RequestBody SuggestionRequest request) throws Exception {
-        return diarySuggestionService.getDiarySuggestion(request);
+        String uid = authentication.getName();
+        return diarySuggestionService.getDiarySuggestion(uid, request);
     }
 }

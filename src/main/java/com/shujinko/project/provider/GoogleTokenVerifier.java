@@ -1,8 +1,23 @@
 package com.shujinko.project.provider;
 
+import com.google.api.client.auth.oauth2.TokenResponse;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest;
+import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.shujinko.project.domain.dto.auth.LoginResponse;
+import com.shujinko.project.domain.entity.RefreshToken;
+import com.shujinko.project.domain.entity.user.User;
+import com.shujinko.project.repository.RefreshTokenRepository;
+import com.shujinko.project.service.user.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -17,10 +32,29 @@ public class GoogleTokenVerifier {
 
     @Value("${app.auth.google.trusted-audiences}")
     private List<String> trustedAudiences;
-
+    
+    @Value("${app.auth.google.web.test-id}")
+    private String web_client_id;
+    @Value("${app.auth.google.web.test-secret}")
+    private String web_client_secret;
+    @Value("${app.auth.google.web.redirect-uri}")
+    private String redirect_uri;
+    
     private static final HttpTransport transport = Utils.getDefaultTransport();
     private static final JsonFactory jsonFactory = Utils.getDefaultJsonFactory();
-
+    private final UserService userService;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final Logger logger = LoggerFactory.getLogger(GoogleTokenVerifier.class);
+    
+    public GoogleTokenVerifier(UserService userService,
+                               JwtTokenProvider jwtTokenProvider,
+                               RefreshTokenRepository refreshTokenRepository) {
+        this.userService = userService;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenRepository = refreshTokenRepository;
+    }
+    
     public GoogleIdToken.Payload verify(String idTokenString) {
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)

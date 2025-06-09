@@ -15,6 +15,7 @@ import java.util.List;
 @Entity
 @Table(name = "user")
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -31,14 +32,17 @@ public class User {
     private LocalDate birthday;
     @OneToMany(mappedBy = "user")
     private List<Diary> diaries = new ArrayList<>();
+    private String accessToken;
+    private String refreshToken;
     
     public UserDto toUserDto(){
         return UserDto.builder().
-                uid(uid).
+                //uid(uid).
                 email(email).
                 name(name).
-                photoUrl(photoUrl).
-                createdAt(createdAt).
+                //photoUrl(photoUrl).
+                //createdAt(createdAt).
+                birthday(birthday).
                 build();
     }
 }

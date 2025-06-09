@@ -16,8 +16,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -36,12 +38,13 @@ public class StatisticsService {
     private final Day30KeywordStatRepository day30KeywordStatRepository;
     private final EmotionRepository emotionRepository;
     private final DiarySuggestionService diarySuggestionService;
+    private final ReportRepository reportRepository;
     @Autowired
     public StatisticsService(DiaryRepository diaryRepository, WeeklyKeywordStatRepository weeklyKeywordStatRepository
     , UserRepository userRepository, MonthlyKeywordStatRepository monthlyKeywordStatRepository,
                              Day7KeywordStatRepository day7KeywordStatRepository,
                              Day30KeywordStatRepository day30KeywordStatRepository, EmotionRepository emotionRepository,
-                             DiarySuggestionService diarySuggestionService) {
+                             DiarySuggestionService diarySuggestionService, ReportRepository reportRepository) {
         this.diaryRepository = diaryRepository;
         this.weeklyKeywordStatRepository = weeklyKeywordStatRepository;
         this.userRepository = userRepository;
@@ -50,10 +53,16 @@ public class StatisticsService {
         this.day30KeywordStatRepository = day30KeywordStatRepository;
         this.emotionRepository = emotionRepository;
         this.diarySuggestionService = diarySuggestionService;
+        this.reportRepository = reportRepository;
     }
     
     public OneSentence oneSentenceKeyword(String uid) throws Exception {
         Optional<User> opUser = userRepository.findById(uid);
+        LocalDate localDate = LocalDate.now();
+        int year = localDate.getYear();
+        int month = localDate.getMonthValue();
+        int week = localDate.get(WeekFields.of(DayOfWeek.SUNDAY, 1).weekOfMonth());
+        LocalDate lastMonth = localDate.minusMonths(1);
         User user = null;
         if(opUser.isPresent()){
             user = opUser.get();
@@ -61,21 +70,32 @@ public class StatisticsService {
             return new OneSentence("알맞은 유저가 없는데요");
         }
         
-        List<Day7KeywordStat> stats= day7KeywordStatRepository.findByUser(user);
-        List<EmotionCountDto> emotions = day7Emotion(uid);
+        Optional<Report> report7 = reportRepository.findByUserAndSentenceType(user, "DAY7");
+        Optional<Report> report30 = reportRepository.findByUserAndSentenceType(user, "DAY30");
+        List<Report> reportThisMonth = reportRepository.findByUserAndYearAndMonthAndSentenceType(user,year,month, "MONTH");
+        List<Report> reportThisWeek = reportRepository.findByUserAndYearAndMonthAndSentenceTypeOrderByWeekOfMonthAsc(user, year, month,"WEEK");
+        List<Report> reportLastMonth = reportRepository.findByUserAndYearAndMonthAndSentenceType(user, lastMonth.getYear(), lastMonth.getMonthValue(), "MONTH");
+        List<Report> reportLastWeek = reportRepository.findByUserAndYearAndMonthAndSentenceTypeOrderByWeekOfMonthAsc(user, lastMonth.getYear(), lastMonth.getMonthValue(), "WEEK");
         
-        KeywordEmotion keywordEmotion = new KeywordEmotion();
-        keywordEmotion.setKeywords(stats.stream().limit(5).collect(Collectors.toMap(Day7KeywordStat::getKeywordStr,Day7KeywordStat::getFrequency)));
-        keywordEmotion.setEmotions(
-                emotions.stream().limit(5).collect(Collectors.toMap(EmotionCountDto::getEmotion,EmotionCountDto::getCount)));
+        List<Report> allReports = new ArrayList<>();
         
-        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion);
-        String sentence = oneSentence.getSentence();
-        if (sentence != null && !sentence.isEmpty()) {
-            return oneSentence;
-        }else{
+        report7.ifPresent(allReports::add); // Optional에서 값이 있으면 추가
+        report30.ifPresent(allReports::add); // Optional에서 값이 있으면 추가
+        
+        allReports.addAll(reportThisMonth);
+        allReports.addAll(reportThisWeek);
+        allReports.addAll(reportLastMonth);
+        allReports.addAll(reportLastWeek);
+        
+        if(allReports.isEmpty()){
+            logger.info("oneSentenceKeyword : 유저 {}의 통계가 없습니다.", uid);
             return new OneSentence("이번주는 등장한 키워드가 없네요!");
         }
+        Random random = new Random();
+        int randomIndex = random.nextInt(allReports.size()); // 리스트 크기 내에서 랜덤 인덱스 생성
+        Report randomReport = allReports.get(randomIndex); // 랜덤으로 선택된 Report
+        String sentence = randomReport.getSentence();
+        return new OneSentence(sentence);
     }
     
     /**
@@ -303,6 +323,8 @@ public class StatisticsService {
                     System.out.println(Thread.currentThread().getName() + ": 비동기 월간 키워드 통계: 저장할 키워드 없음 (" + year + "-W" + month + ") for user " + uid);
                 }
                 
+                updateWeekReport(user, diaryDate);
+                updateMonthReport(user, diaryDate);
             } catch (Exception e) {
                 System.err.println(Thread.currentThread().getName() + ": 비동기 주간 키워드 통계 업데이트 중 오류 발생 for user " + uid + ", date " + diaryDate);
                 e.printStackTrace();
@@ -319,6 +341,7 @@ public class StatisticsService {
                 User user = userRepository.findById(uid).orElse(null);
                 if(user == null){
                     logger.info("updateDay7KeywordStats : user {} 를 찾을 수 없음.",uid);
+                    return;
                 }
                 logger.info("updateDay7KeywordStats : user {} 시작 ",uid);
                 LocalDate now = LocalDate.now();
@@ -355,6 +378,7 @@ public class StatisticsService {
                 }else{
                     logger.info("updateDay7KeywordStats : user {} 추가할 keyword 없음",uid);
                 }
+                updateDay7Report(user, diaryDate);
                 logger.info("updateDay7KeywordStats : user {} 종료 ",uid);
             }catch(Exception e){
                 logger.info("updateDay7KeywordStats : user {} error!",uid);
@@ -371,6 +395,7 @@ public class StatisticsService {
                 User user = userRepository.findById(uid).orElse(null);
                 if(user == null){
                     logger.info("updateDay30KeywordStats : user {} 를 찾을 수 없음.",uid);
+                    return;
                 }
                 logger.info("updateDay30KeywordStats : user {} 시작 ",uid);
                 LocalDate now = LocalDate.now();
@@ -406,11 +431,163 @@ public class StatisticsService {
                 }else{
                     logger.info("updateDay30KeywordStats : user {} 추가할 keyword 없음",uid);
                 }
+                updateDay30Report(user, diaryDate);
                 logger.info("updateDay30KeywordStats : user {} 종료 ",uid);
             }catch(Exception e){
                 logger.info("updateDay30KeywordStats : user {} error!",uid);
             }
         }
+    }
+    
+    public void updateDay7Report(User user, LocalDate diaryDate) throws IOException{
+        logger.info("updateDay7Report : user {} 시작 ",user.getUid());
+        LocalDate sevenDaysAgo = diaryDate.minusDays(7);
+        if(diaryDate.isBefore(sevenDaysAgo)){//7일보다 전이면
+            logger.debug("updateDay7Report : user {} 7일 보다 전, 갱신안함",user.getUid());
+            return;
+        }
+        List<EmotionCountDto> emotions = day7Emotion(user.getUid());
+        List<KeywordCountDto> keywords = day7Keywords(user.getUid());
+        Map<String,Long> keywordMap = keywords.stream()
+                .collect(Collectors.toMap(KeywordCountDto::getKeyword, KeywordCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement)); // 중복 키 처리
+        Map<String,Long> emotionMap = emotions.stream()
+                .collect(Collectors.toMap(EmotionCountDto::getEmotion, EmotionCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement));
+        KeywordEmotion keywordEmotion = new KeywordEmotion();
+        keywordEmotion.setKeywords(keywordMap);
+        keywordEmotion.setEmotions(emotionMap);
+        
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,"오늘 기준 7일 전");
+        Optional<Report> optReport =
+                reportRepository.findByUserAndSentenceType(user, "DAY7");
+        if(optReport.isPresent()){
+            Report report = optReport.get();
+            report.setSentence(oneSentence.getSentence());
+        }else{
+            Report report = Report.builder()
+                    .user(user)
+                    .weekOfMonth(1) // DAY7는 항상 1주차로 간주
+                    .sentenceType("DAY7")
+                    .sentence(oneSentence.getSentence())
+                    .build();
+            reportRepository.save(report);
+        }
+    }
+    
+    public void updateDay30Report(User user, LocalDate diaryDate) throws IOException {
+        logger.info("updateDay30Report : user {} 시작 ",user.getUid());
+        LocalDate thirtyDaysAgo = diaryDate.minusDays(30);
+        if(diaryDate.isBefore(thirtyDaysAgo)){//30일보다 전이면
+            logger.debug("updateDay30Report : user {} 30일 보다 전, 갱신안함",user.getUid());
+            return;
+        }
+        List<EmotionCountDto> emotions = day30Emotion(user.getUid());
+        List<KeywordCountDto> keywords = day30Keywords(user.getUid());
+        Map<String,Long> keywordMap = keywords.stream()
+                .collect(Collectors.toMap(KeywordCountDto::getKeyword, KeywordCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement)); // 중복 키 처리
+        Map<String,Long> emotionMap = emotions.stream()
+                .collect(Collectors.toMap(EmotionCountDto::getEmotion, EmotionCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement));
+        KeywordEmotion keywordEmotion = new KeywordEmotion();
+        keywordEmotion.setKeywords(keywordMap);
+        keywordEmotion.setEmotions(emotionMap);
+        
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,"오늘 기준 30일 전");
+        Optional<Report> optReport =
+                reportRepository.findByUserAndSentenceType(user, "DAY30");
+        if(optReport.isPresent()){
+            Report report = optReport.get();
+            report.setSentence(oneSentence.getSentence());
+        }else{
+            Report report = Report.builder()
+                    .user(user)
+                    .weekOfMonth(1) // DAY30는 항상 1주차로 간주
+                    .sentenceType("DAY30")
+                    .sentence(oneSentence.getSentence())
+                    .build();
+            reportRepository.save(report);
+        }
+    }
+    
+    public void updateWeekReport(User user,LocalDate diaryDate) throws IOException {
+        //TODO : 들어온 주의 1주일 sentence 작성
+        logger.info("updateWeekReport : user {} 시작 ",user.getUid());
+        WeekFields weekFields = WeekFields.of(DayOfWeek.SUNDAY, 1);
+        int year = diaryDate.getYear();
+        int month = diaryDate.getMonthValue();
+        int weekNumber = diaryDate.get(weekFields.weekOfMonth());
+        Optional<Report> optReport=
+                reportRepository.findByUserAndYearAndMonthAndWeekOfMonthAndSentenceType(user,year,month,weekNumber,"WEEK");
+        
+        KeywordEmotion keywordEmotion = new KeywordEmotion();
+        List<EmotionCountDto> emotions = topWeekEmotion(user.getUid(), year, month, weekNumber);
+        List<KeywordCountDto> keywords = topWeekKeywords(user.getUid(), year, month, weekNumber);
+        Map<String,Long> keywordMap = keywords.stream()
+                .collect(Collectors.toMap(KeywordCountDto::getKeyword, KeywordCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement)); // 중복 키 처리
+        Map<String,Long> emotionMap = emotions.stream()
+                .collect(Collectors.toMap(EmotionCountDto::getEmotion, EmotionCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement));
+        keywordEmotion.setKeywords(keywordMap);
+        keywordEmotion.setEmotions(emotionMap);
+        
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,String.format("%d년 %d월 %d주차", year, month, weekNumber));
+        if(optReport.isPresent()){
+            Report report = optReport.get();
+            report.setSentence(oneSentence.getSentence());
+        }else {
+            Report report = Report.builder()
+                    .user(user)
+                    .year(year)
+                    .month(month)
+                    .weekOfMonth(weekNumber)
+                    .sentenceType("WEEK")
+                    .sentence(oneSentence.getSentence())
+                    .build();
+            reportRepository.save(report);
+        }
+        logger.info("updateWeekReport : user {} 종료 ",user.getUid());
+    }
+    
+    public void updateMonthReport(User user,LocalDate diaryDate) throws IOException {
+        //TODO : 들어온 주의 1달 sentence 작성
+        logger.info("updateMonthReport : user {} 시작 ",user.getUid());
+        int year = diaryDate.getYear();
+        int month = diaryDate.getMonthValue();
+        int weekNumber = 1;
+        Optional<Report> optReport=
+                reportRepository.findByUserAndYearAndMonthAndWeekOfMonthAndSentenceType(user,year,month,weekNumber,"MONTH");
+        
+        KeywordEmotion keywordEmotion = new KeywordEmotion();
+        List<EmotionCountDto> emotions = topMonthEmotion(user.getUid(), year, month);
+        List<KeywordCountDto> keywords = topMonthKeywords(user.getUid(), year, month);
+        Map<String,Long> keywordMap = keywords.stream()
+                .collect(Collectors.toMap(KeywordCountDto::getKeyword, KeywordCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement)); // 중복 키 처리
+        Map<String,Long> emotionMap = emotions.stream()
+                .collect(Collectors.toMap(EmotionCountDto::getEmotion, EmotionCountDto::getCount,
+                        (existing, replacement) -> existing>replacement?existing:replacement));
+        keywordEmotion.setKeywords(keywordMap);
+        keywordEmotion.setEmotions(emotionMap);
+        
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,String.format("%d년 %d월", year, month));
+        if(optReport.isPresent()){
+            Report report = optReport.get();
+            report.setSentence(oneSentence.getSentence());
+        }else {
+            Report report = Report.builder()
+                    .user(user)
+                    .year(year)
+                    .month(month)
+                    .weekOfMonth(weekNumber)
+                    .sentenceType("MONTH")
+                    .sentence(oneSentence.getSentence())
+                    .build();
+            reportRepository.save(report);
+        }
+        logger.info("updateMonthReport : user {} 종료 ",user.getUid());
     }
     
     @Transactional
@@ -424,6 +601,7 @@ public class StatisticsService {
             updateDay7KeywordStats(user.getUid(), LocalDate.now());
         }
     }
+    
     
     
     //---------------유틸리티 함수----------

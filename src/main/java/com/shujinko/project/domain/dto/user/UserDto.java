@@ -5,26 +5,20 @@ import com.shujinko.project.domain.entity.user.User;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.cglib.core.Local;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @Builder
 public class UserDto {
-    private String uid;
+    //private String uid;
     private String email;
     private String name;
-    private String photoUrl;
-    private LocalDateTime createdAt;
-    
-    public User toEntity(){
-        return User.builder()
-                .uid(uid)
-                .email(email)
-                .name(name)
-                .photoUrl(photoUrl)
-                .createdAt(createdAt)
-                .build();
-    }
+    //private String photoUrl;
+    //private LocalDateTime createdAt;
+    private LocalDate birthday;
 }
+

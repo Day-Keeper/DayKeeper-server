@@ -1,8 +1,8 @@
 package com.shujinko.project.controller.user;
 
 import com.google.firebase.auth.FirebaseAuthException;
-import com.shujinko.project.domain.dto.LoginRequest;
-import com.shujinko.project.domain.dto.RefreshRequest;
+import com.shujinko.project.domain.dto.auth.LoginRequest;
+import com.shujinko.project.domain.dto.auth.RefreshRequest;
 import com.shujinko.project.service.user.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Collections;
 
 @RestController
@@ -22,12 +24,12 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {//Google id token 받음
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) throws GeneralSecurityException, IOException {//Google id token 받음
         logger.info("idToken = {}", request.getIdToken());
         if (request.getIdToken() == null || request.getIdToken().isBlank()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("idToken 누락");
         }
-
+        logger.info("accessToken = {}", request.getAccessToken());
         try {
             // Firebase 인증을 통해 Google ID 토큰 검증 및 사용자 정보 획득
             var tokens = authService.authenticate(request);
@@ -38,6 +40,11 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid ID token");
         }
     }
+    
+//    @PostMapping("/testLogin")
+//    public ResponseEntity<?> testLogin(@RequestBody LoginRequestTest request) {
+//
+//    }
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@RequestBody RefreshRequest request) {
@@ -47,7 +54,7 @@ public class AuthController {
                 return ResponseEntity.badRequest().body("refreshToken 누락");
             }
 
-            String newAccessToken = authService.refreshAccessToken(refreshToken);
+            String newAccessToken = authService.refreshJwtAccessToken(refreshToken);
             return ResponseEntity.ok(Collections.singletonMap("accessToken", newAccessToken));
 
         } catch (Exception e) {

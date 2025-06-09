@@ -1,4 +1,4 @@
-package com.shujinko.project.domain.dto;
+package com.shujinko.project.domain.dto.auth;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
