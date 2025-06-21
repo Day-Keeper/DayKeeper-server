@@ -7,7 +7,7 @@ import lombok.*;
 @Builder
 @Getter
 @Setter
-public class aiKeywordDto {
+public class AiKeywordDto {
     private String text;
     private String label;
 }

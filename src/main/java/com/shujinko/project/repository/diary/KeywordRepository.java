@@ -12,4 +12,5 @@ import java.util.Optional;
 public interface KeywordRepository extends JpaRepository<Keyword, Long> {
     Optional<Keyword> findByKeywordStr(String keyword);
     List<Keyword> findByKeywordStrIn(List<String> keywords);
+    Optional<Keyword> findByKeywordStrAndLabel(String keywordStr, String label);
 }

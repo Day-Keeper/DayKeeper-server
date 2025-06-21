@@ -22,6 +22,7 @@ public class Emotion {
     @Column(length = 20, unique = true, nullable = false)
     private String emotionStr;
     
+    @Builder.Default
     @OneToMany(mappedBy = "emotion", fetch = FetchType.LAZY)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
 }

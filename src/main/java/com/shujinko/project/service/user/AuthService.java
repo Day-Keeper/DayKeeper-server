@@ -47,16 +47,14 @@ public class AuthService {
     private JwtTokenProvider jwtTokenProvider;
     @Autowired
     private GooglePeopleService googlePeopleService;
-    @Value("${app.auth.google.web.test-id}")
+    @Value("${app.auth.google.web.client-id}")
     private String web_client_id;
-    @Value("${app.auth.google.web.test-secret}")
+    @Value("${app.auth.google.web.client-secret}")
     private String web_client_secret;
-    @Value("${app.auth.google.web.redirect-uri}")
-    private String redirect_uri;
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     
     
-
+    
     public LoginResponse authenticate(LoginRequest request) throws FirebaseAuthException, GeneralSecurityException, IOException {
         GoogleIdToken.Payload payload = googleTokenVerifier.verify(request.getIdToken());//구글이 발급한 키가 맞냐(인증)
         if (payload == null) {
@@ -80,7 +78,7 @@ public class AuthService {
                 web_client_id,
                 web_client_secret,
                 request.getAccessToken(), //AuthCode
-                redirect_uri).execute();
+                "").execute();
         
         String idToken = tokenResponse.getIdToken();
         String refreshToken = tokenResponse.getRefreshToken();
@@ -104,12 +102,20 @@ public class AuthService {
                                 .build()
                 )
         );
-
+        if(user.getAccessToken() == null || user.getAccessToken().isBlank()) {
+            user.setAccessToken(accessToken);
+        }
+        if(user.getRefreshToken() == null || user.getRefreshToken().isBlank()) {
+            user.setRefreshToken(refreshToken);
+        }
+        
+        userRepository.save(user);
+        
         String jwtAccessToken = jwtTokenProvider.createAccessToken(uid, email, name);
         String jwtRefreshToken = jwtTokenProvider.createRefreshToken(uid);
 
         refreshTokenRepository.save(
-                new RefreshToken(uid, refreshToken, LocalDateTime.now().plusDays(14))
+                new RefreshToken(uid, jwtRefreshToken, LocalDateTime.now().plusDays(14))
         );
 
         return new LoginResponse(jwtAccessToken, jwtRefreshToken);
@@ -152,8 +158,6 @@ public class AuthService {
         
         user.setAccessToken(newAccessToken);
         logger.info("Refresh Access Token: {}", newAccessToken);
-        
-        return newAccessToken;
     }
     
 

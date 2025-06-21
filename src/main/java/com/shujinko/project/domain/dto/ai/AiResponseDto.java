@@ -9,9 +9,10 @@ import java.util.List;
 @Builder
 @Getter
 @Setter
-public class aiResponseDto {
+public class AiResponseDto {
     private List<ParagraphDto> paragraphs;
     private String summary;
-    private aiEmotionDto emotion;
-    private List<aiKeywordDto> keywords;
+    private AiEmotionDto emotion;
+    private List<AiKeywordDto> keywords;
+    private List<String> unmatched_images;
 }

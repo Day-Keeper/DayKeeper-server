@@ -1,6 +1,6 @@
 package com.shujinko.project.domain.entity.diary;
 
-import com.shujinko.project.domain.dto.ai.aiKeywordDto;
+import com.shujinko.project.domain.dto.ai.AiKeywordDto;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(of = {"keywordStr","label"}) // keywordStr을 기준으로 equals와 hashCode를 생성
 @Entity
 @Table(name = "keyword", uniqueConstraints = { // @Table 어노테이션 추가
         @UniqueConstraint(columnNames = {"keywordStr", "label"}) // 복합 유니크 제약 조건 설정
@@ -30,10 +30,11 @@ public class Keyword {
     private String label;
     
     @OneToMany(mappedBy = "keyword", fetch = FetchType.LAZY)
+    @Builder.Default
     private List<DiaryKeyword> diaryKeywords = new ArrayList<>();
     
-    public aiKeywordDto toAiKeywordDto(){
-        return aiKeywordDto.builder()
+    public AiKeywordDto toAiKeywordDto(){
+        return AiKeywordDto.builder()
                 .text(keywordStr).label(label).build();
     }
 }

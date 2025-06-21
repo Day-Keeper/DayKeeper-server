@@ -33,26 +33,13 @@ public class GoogleTokenVerifier {
     @Value("${app.auth.google.trusted-audiences}")
     private List<String> trustedAudiences;
     
-    @Value("${app.auth.google.web.test-id}")
-    private String web_client_id;
-    @Value("${app.auth.google.web.test-secret}")
-    private String web_client_secret;
-    @Value("${app.auth.google.web.redirect-uri}")
-    private String redirect_uri;
-    
     private static final HttpTransport transport = Utils.getDefaultTransport();
     private static final JsonFactory jsonFactory = Utils.getDefaultJsonFactory();
-    private final UserService userService;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final Logger logger = LoggerFactory.getLogger(GoogleTokenVerifier.class);
+
     
     public GoogleTokenVerifier(UserService userService,
                                JwtTokenProvider jwtTokenProvider,
                                RefreshTokenRepository refreshTokenRepository) {
-        this.userService = userService;
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.refreshTokenRepository = refreshTokenRepository;
     }
     
     public GoogleIdToken.Payload verify(String idTokenString) {

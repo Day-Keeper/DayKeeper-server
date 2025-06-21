@@ -177,9 +177,12 @@ public class StatisticsService {
         
         System.out.println(freqMap);
         
-        return freqMap.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .map(e -> new EmotionCountDto(e.getKey(), e.getValue()))
+//        return freqMap.entrySet().stream()
+//                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+//                .map(e -> new EmotionCountDto(e.getKey(), e.getValue()))
+//                .collect(Collectors.toList());
+        return frequencyMap.entrySet().stream().map(entry -> new EmotionCountDto(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparingLong(EmotionCountDto::getCount).reversed())
                 .collect(Collectors.toList());
     }
     
@@ -443,7 +446,7 @@ public class StatisticsService {
         logger.info("updateDay7Report : user {} 시작 ",user.getUid());
         LocalDate sevenDaysAgo = diaryDate.minusDays(7);
         if(diaryDate.isBefore(sevenDaysAgo)){//7일보다 전이면
-            logger.debug("updateDay7Report : user {} 7일 보다 전, 갱신안함",user.getUid());
+            logger.info("updateDay7Report : user {} 7일 보다 전, 갱신안함",user.getUid());
             return;
         }
         List<EmotionCountDto> emotions = day7Emotion(user.getUid());
@@ -458,7 +461,7 @@ public class StatisticsService {
         keywordEmotion.setKeywords(keywordMap);
         keywordEmotion.setEmotions(emotionMap);
         
-        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,"오늘 기준 7일 전");
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,"지난 일주일");
         Optional<Report> optReport =
                 reportRepository.findByUserAndSentenceType(user, "DAY7");
         if(optReport.isPresent()){
@@ -479,7 +482,7 @@ public class StatisticsService {
         logger.info("updateDay30Report : user {} 시작 ",user.getUid());
         LocalDate thirtyDaysAgo = diaryDate.minusDays(30);
         if(diaryDate.isBefore(thirtyDaysAgo)){//30일보다 전이면
-            logger.debug("updateDay30Report : user {} 30일 보다 전, 갱신안함",user.getUid());
+            logger.info("updateDay30Report : user {} 30일 보다 전, 갱신안함",user.getUid());
             return;
         }
         List<EmotionCountDto> emotions = day30Emotion(user.getUid());
@@ -494,7 +497,7 @@ public class StatisticsService {
         keywordEmotion.setKeywords(keywordMap);
         keywordEmotion.setEmotions(emotionMap);
         
-        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,"오늘 기준 30일 전");
+        OneSentence oneSentence = diarySuggestionService.getWeekOneSentence(keywordEmotion,"지난 한달");
         Optional<Report> optReport =
                 reportRepository.findByUserAndSentenceType(user, "DAY30");
         if(optReport.isPresent()){
@@ -593,12 +596,22 @@ public class StatisticsService {
     @Transactional
     @Async
     @Scheduled(cron = "0 0 0 * * *")
-    public void updateAll(){
+    public void updateAll() throws IOException {
         List<User> users = userRepository.findAll();
-        for (User user : users) {
-            logger.info("Scheduled updateAll for user {} : 시작 ",user.getUid());
-            updateDay30KeywordStats(user.getUid(), LocalDate.now());
-            updateDay7KeywordStats(user.getUid(), LocalDate.now());
+//        for (User user : users) {
+//            logger.info("Scheduled updateAll for user {} : 시작 ",user.getUid());
+//            updateDay30KeywordStats(user.getUid(), LocalDate.now());
+//            updateDay7KeywordStats(user.getUid(), LocalDate.now());
+//        }
+        LocalDate start = LocalDate.of(2025,5,1);
+        for(User user : users){
+            for(int i = 0; i<8;i++){
+                LocalDate date = start.plusDays(i);
+                updateDay30Report(user, date);
+                updateDay7Report(user, date);
+                updateWeekReport(user, date);
+                updateMonthReport(user, date);
+            }
         }
     }
     

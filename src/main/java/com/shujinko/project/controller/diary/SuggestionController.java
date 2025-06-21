@@ -26,4 +26,5 @@ public class SuggestionController {
         String uid = authentication.getName();
         return diarySuggestionService.getDiarySuggestion(uid, request);
     }
+    
 }

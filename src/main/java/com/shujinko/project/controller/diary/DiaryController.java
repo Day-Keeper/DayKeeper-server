@@ -108,7 +108,7 @@ public class DiaryController {
     }
     
     @GetMapping("/reset")
-    public void reset(Authentication authentication) {
+    public void reset(Authentication authentication) throws Exception {
         String uid = authentication.getName();
         diaryService.resetStat(uid);
     }

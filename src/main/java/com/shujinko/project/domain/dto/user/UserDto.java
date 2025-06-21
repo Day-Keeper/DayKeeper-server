@@ -17,7 +17,7 @@ public class UserDto {
     //private String uid;
     private String email;
     private String name;
-    //private String photoUrl;
+    private String photoUrl;
     //private LocalDateTime createdAt;
     private LocalDate birthday;
 }

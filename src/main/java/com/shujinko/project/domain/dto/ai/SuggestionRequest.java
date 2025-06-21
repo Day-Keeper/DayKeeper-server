@@ -9,4 +9,5 @@ import lombok.*;
 @Builder
 public class SuggestionRequest {
     String rawDiary;
+    String diaryDate;
 }

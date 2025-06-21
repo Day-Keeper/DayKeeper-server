@@ -14,6 +14,7 @@ import lombok.*;
 public class DiaryEmotion {
     @EqualsAndHashCode.Include
     @EmbeddedId
+    @Builder.Default
     private DiaryEmotionId id = new DiaryEmotionId();
     
     @ManyToOne(fetch = FetchType.LAZY)

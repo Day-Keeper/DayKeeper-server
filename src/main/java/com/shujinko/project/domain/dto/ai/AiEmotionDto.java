@@ -8,7 +8,7 @@ import java.util.Map;
 @Builder
 @Getter
 @Setter
-public class aiEmotionDto {
+public class AiEmotionDto {
     private String label;
     private Map<String,Double> scores;
 }

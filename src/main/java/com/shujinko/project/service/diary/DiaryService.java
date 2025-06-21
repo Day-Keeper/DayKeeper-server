@@ -106,7 +106,7 @@ public class DiaryService {
     }
     
     /*--------------------유틸리티 함수-----------------*/
-    private static String getResult(aiResponseDto aiResponse) {
+    private static String getResult(AiResponseDto aiResponse) {
         StringBuilder rephrased = new StringBuilder();
         for(ParagraphDto p : aiResponse.getParagraphs()) {
             rephrased.append(p.getSubject());
@@ -153,6 +153,7 @@ public class DiaryService {
                 .diaryKeywords(new ArrayList<>())
                 .diaryEmotions(new ArrayList<>())
                 .paragraphs(new ArrayList<>())
+                .unmatchedImages(new ArrayList<>())
                 .build();
         return diaryRepository.save(diary); // DiaryEmotion, DiaryKeyword 연결 전에 ID 확보 위해 먼저 저장
     }
@@ -199,80 +200,93 @@ public class DiaryService {
             currentDiaryEmotions.add(addingEmotion);
         });
     }
-    private void processAndLinkKeywords(Diary diary, List<aiKeywordDto> aiKeywordDtos) {
-        if (aiKeywordDtos == null) aiKeywordDtos = Collections.emptyList();
+    public void processAndLinkKeywords(Diary diary, List<AiKeywordDto> aiKeywordDtos) {
+        if (aiKeywordDtos == null) {
+            aiKeywordDtos = Collections.emptyList();
+        }
+        // Diary의 ID가 없는 상태에서는 키워드를 연결할 수 없으므로 예외 처리
+        if (diary.getId() == null) {
+            throw new IllegalStateException("키워드를 연결하기 전에 Diary가 먼저 저장되어 ID를 가지고 있어야 합니다.");
+        }
         
-        // AI 응답의 키워드: (text|label) -> aiKeywordDto
-        Map<String, aiKeywordDto> aiKeywordsDtoMap = aiKeywordDtos.stream()
+        // --- 1. 최종적으로 연결해야 할 Keyword 엔티티 Set 생성 ---
+        
+        // AI 응답에서 (text, label) 조합을 기준으로 중복을 제거한다.
+        Map<String, AiKeywordDto> uniqueAiKeywordsMap = aiKeywordDtos.stream()
                 .collect(Collectors.toMap(
                         dto -> dto.getText() + "|" + (dto.getLabel() == null ? "NULL_LABEL" : dto.getLabel()),
-                        Function.identity()));
-        
-        // DB에서 text로 일괄 조회
-        Set<String> uniqueTexts = aiKeywordDtos.stream().map(aiKeywordDto::getText).collect(Collectors.toSet());
-        List<Keyword> existingKeywords = uniqueTexts.isEmpty() ? Collections.emptyList()
-                : keywordRepository.findByKeywordStrIn(new ArrayList<>(uniqueTexts));
-        Map<String, Keyword> dbKeywordEntityMap = existingKeywords.stream()
-                .collect(Collectors.toMap(
-                        kw -> kw.getKeywordStr() + "|" + (kw.getLabel() == null ? "NULL_LABEL" : kw.getLabel()),
                         Function.identity(),
-                        (a, b) -> a));
+                        (first, second) -> first // 중복 시 첫 번째 값 유지
+                ));
         
-        // 새로 추가해야 하는 Keyword 엔티티 생성
-        List<Keyword> newKeywordsToSave = new ArrayList<>();
-        for (String aiKey : aiKeywordsDtoMap.keySet()) {
-            if (!dbKeywordEntityMap.containsKey(aiKey)) {
-                aiKeywordDto dto = aiKeywordsDtoMap.get(aiKey);
-                Keyword newKeyword = Keyword.builder()
-                        .keywordStr(dto.getText())
-                        .label(dto.getLabel())
-                        .build();
-                newKeywordsToSave.add(newKeyword);
+        // 각 유니크 키워드에 대해 "Find or Create" 로직을 실행하여 최종 Keyword 엔티티 Set을 만든다.
+        Set<Keyword> finalKeywords = new HashSet<>();
+        for (AiKeywordDto dto : uniqueAiKeywordsMap.values()) {
+            Keyword keyword = keywordRepository.findByKeywordStrAndLabel(dto.getText(), dto.getLabel())
+                    .orElseGet(() -> {
+                        // DB에 없으면 새로 생성하여 저장한다.
+                        // @Transactional 덕분에 이 save()는 트랜잭션 커밋 시점에 모아서 처리된다.
+                        Keyword newKeyword = Keyword.builder()
+                                .keywordStr(dto.getText())
+                                .label(dto.getLabel())
+                                .build();
+                        return keywordRepository.save(newKeyword);
+                    });
+            finalKeywords.add(keyword);
+        }
+        
+        // --- 2. Diary와 Keyword의 연관 관계(DiaryKeyword) 동기화 ---
+        
+        // 현재 Diary에 연결된 Keyword Set을 가져온다.
+        Set<Keyword> currentKeywords = diary.getDiaryKeywords().stream()
+                .map(DiaryKeyword::getKeyword)
+                .collect(Collectors.toSet());
+        
+        // 삭제할 연결 찾기: 현재 연결 O, 최종 목록 X
+        if (!currentKeywords.isEmpty()) {
+            Set<Keyword> keywordsToRemove = new HashSet<>(currentKeywords);
+            keywordsToRemove.removeAll(finalKeywords);
+            if (!keywordsToRemove.isEmpty()) {
+                diary.getDiaryKeywords().removeIf(dk -> keywordsToRemove.contains(dk.getKeyword()));
             }
         }
-        if (!newKeywordsToSave.isEmpty()) {
-            keywordRepository.saveAll(newKeywordsToSave);
-            for (Keyword k : newKeywordsToSave)
-                dbKeywordEntityMap.put(k.getKeywordStr() + "|" + (k.getLabel() == null ? "NULL_LABEL" : k.getLabel()), k);
-        }
         
-        // 현재 DiaryKeyword ID Set
-        Set<DiaryKeywordId> currentIds = diary.getDiaryKeywords().stream()
-                .map(DiaryKeyword::getId).collect(Collectors.toSet());
+        // 추가할 연결 찾기: 최종 목록 O, 현재 연결 X
+        Set<Keyword> keywordsToAdd = new HashSet<>(finalKeywords);
+        keywordsToAdd.removeAll(currentKeywords);
         
-        // AI 기반 차집합 비교 (DiaryKeywordId)
-        Set<DiaryKeywordId> aiIds = aiKeywordDtos.stream().map(dto -> {
-            Keyword k = dbKeywordEntityMap.get(dto.getText() + "|" + (dto.getLabel() == null ? "NULL_LABEL" : dto.getLabel()));
-            return (k != null && diary.getId() != null) ? new DiaryKeywordId(diary.getId(), k.getId()) : null;
-        }).filter(Objects::nonNull).collect(Collectors.toSet());
-        
-        // 삭제: 현재 있는데 AI에 없는 것
-        diary.getDiaryKeywords().removeIf(dk -> !aiIds.contains(dk.getId()));
-        
-        // 추가: AI에 있는데 현재 없는 것
-        for (aiKeywordDto dto : aiKeywordDtos) {
-            Keyword keyword = dbKeywordEntityMap.get(dto.getText() + "|" + (dto.getLabel() == null ? "NULL_LABEL" : dto.getLabel()));
-            if (keyword == null || diary.getId() == null) continue;
-            DiaryKeywordId dkId = new DiaryKeywordId(diary.getId(), keyword.getId());
-            if (!currentIds.contains(dkId)) {
-                DiaryKeyword dk = DiaryKeyword.builder()
-                        .id(dkId)
+        if (!keywordsToAdd.isEmpty()) {
+            for (Keyword keywordToAdd : keywordsToAdd) {
+                DiaryKeyword newLink = DiaryKeyword.builder()
+                        .id(new DiaryKeywordId(diary.getId(), keywordToAdd.getId()))
                         .diary(diary)
-                        .keyword(keyword)
+                        .keyword(keywordToAdd)
                         .build();
-                diary.getDiaryKeywords().add(dk);
+                diary.getDiaryKeywords().add(newLink);
             }
         }
     }
     
     @Transactional
-    public void resetStat(String uid){
-        List<Diary> diaries = diaryRepository.findAll();
-        for(Diary diary : diaries){
-            statisticsService.updateKeywordStatistics(uid,diary.getCreatedAt().toLocalDate());
-            statisticsService.updateDay7KeywordStats(uid,diary.getCreatedAt().toLocalDate());
-            statisticsService.updateDay30KeywordStats(uid,diary.getCreatedAt().toLocalDate());
+    public void resetStat(String uid) throws Exception {
+//        List<Diary> diaries = diaryRepository.findAll();
+//        for(Diary diary : diaries){
+//            statisticsService.updateKeywordStatistics(uid,diary.getCreatedAt().toLocalDate());
+//            statisticsService.updateDay7KeywordStats(uid,diary.getCreatedAt().toLocalDate());
+//            statisticsService.updateDay30KeywordStats(uid,diary.getCreatedAt().toLocalDate());
+//        }
+        List<User> users = userRepository.findAll();
+        LocalDate start = LocalDate.of(2025,5,1);
+        for(User user : users){
+            for(int i = 0; i<8;i++){
+                LocalDate date = start.plusWeeks(i);
+                statisticsService.updateDay30Report(user, date);
+                statisticsService.updateDay7Report(user, date);
+                statisticsService.updateWeekReport(user, date);
+                statisticsService.updateMonthReport(user, date);
+            }
         }
+        
     }
     
     @Transactional
@@ -297,7 +311,7 @@ public class DiaryService {
         }
         //AI 응답
         long aiStartTime = System.nanoTime();
-        aiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary(),photoUrls);
+        AiResponseDto aiResponse = fastApiService.callAnalyze(createDto.getRawDiary(),photoUrls);
         double secs = logAiProcessingTime(aiStartTime);
         //정제된 일기 줄바꿈
         String rephrasedString = getResult(aiResponse);
@@ -310,13 +324,24 @@ public class DiaryService {
                     .diary(diary)
                     .subject(paragraphDto.getSubject())
                     .content(paragraphDto.getContent())
-                    .photoURL(paragraphDto.getMatched_image()).build();
+                    .label(paragraphDto.getLabel())
+                    .photoURL(paragraphDto.getMatched_image())
+                    .image_caption(paragraphDto.getImage_caption())
+                    .build();
             paragraphs.add(paragraph);
         }
         //Emotion 저장
         processAndLinkEmotions(diary, aiResponse.getEmotion().getScores());
         //Keyword 저장
         processAndLinkKeywords(diary, aiResponse.getKeywords());
+        diary.setUnmatchedImages(
+                aiResponse.getUnmatched_images().stream()
+                        .map(imageUrl -> UnmatchedImage.builder()
+                                .diary(diary)
+                                .imageUrl(imageUrl)
+                                .build())
+                        .collect(Collectors.toList())
+        );
         //주간 통계
         statisticsService.updateKeywordStatistics(uid, diaryDate);
         statisticsService.updateDay30KeywordStats(uid, diaryDate);

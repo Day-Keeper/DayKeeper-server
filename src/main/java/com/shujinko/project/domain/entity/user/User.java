@@ -30,6 +30,7 @@ public class User {
     private String photoUrl;
     private LocalDateTime createdAt;
     private LocalDate birthday;
+    @Builder.Default
     @OneToMany(mappedBy = "user")
     private List<Diary> diaries = new ArrayList<>();
     private String accessToken;
@@ -40,7 +41,7 @@ public class User {
                 //uid(uid).
                 email(email).
                 name(name).
-                //photoUrl(photoUrl).
+                photoUrl(photoUrl).
                 //createdAt(createdAt).
                 birthday(birthday).
                 build();

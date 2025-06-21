@@ -1,6 +1,6 @@
 package com.shujinko.project.domain.entity.diary;
 
-import com.shujinko.project.domain.dto.ai.aiKeywordDto;
+import com.shujinko.project.domain.dto.ai.AiKeywordDto;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +14,7 @@ import lombok.*;
 public class DiaryKeyword {
     @EqualsAndHashCode.Include
     @EmbeddedId
+    @Builder.Default
     private DiaryKeywordId id = new DiaryKeywordId();
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -30,14 +31,14 @@ public class DiaryKeyword {
         return keyword.getKeywordStr();
     }
     
-    public aiKeywordDto toAiKeywordDto(){
+    public AiKeywordDto toAiKeywordDto(){
         if(keyword != null) {
-            return aiKeywordDto.builder().
+            return AiKeywordDto.builder().
                     text(keyword.getKeywordStr()).
                     label(keyword.getLabel()).
                     build();
         }
-        return aiKeywordDto.builder().
+        return AiKeywordDto.builder().
                 text(keyword.getKeywordStr()).
                 label(null).
                 build();

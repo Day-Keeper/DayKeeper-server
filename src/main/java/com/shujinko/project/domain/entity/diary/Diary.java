@@ -29,6 +29,7 @@ public class Diary {
     @Lob
     private String rawDiary;
     
+    @Builder.Default
     @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL,fetch = FetchType.LAZY)
     private List<Paragraph> paragraphs = new ArrayList<>();
     
@@ -36,14 +37,17 @@ public class Diary {
     
     @Lob
     private String summary;
-    
+    @Builder.Default
     @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DiaryKeyword> diaryKeywords = new ArrayList<>();
-    
+    @Builder.Default
     @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DiaryEmotion> diaryEmotions = new ArrayList<>();
-    
+    @Builder.Default
     private String LabelEmotion = "";
+    @Builder.Default
+    @OneToMany(mappedBy = "diary" , cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<UnmatchedImage> unmatchedImages = new ArrayList<>();
     
     
     public DiaryResponseDto toResponseDto(){
@@ -55,6 +59,7 @@ public class Diary {
                 label(this.LabelEmotion).
                 keywords(this.diaryKeywords.stream().map(DiaryKeyword::toAiKeywordDto).toList()).
                 emotions(this.diaryEmotions.stream().map(DiaryEmotion::toEmotionScoreDto).toList()).
+                unmatchedImages(this.unmatchedImages.stream().map(UnmatchedImage::getImageUrl).toList()).
                 diaryId(this.id).build();
         
     }

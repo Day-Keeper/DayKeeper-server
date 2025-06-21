@@ -24,12 +24,15 @@ public class Paragraph {
     
     String subject;
     
+    String label;
     @Lob
     String content;
     
     String photoURL;
     
+    String image_caption;
+    
     public ParagraphDto toDto(){
-        return ParagraphDto.builder().subject(subject).content(content).matched_image(photoURL).build();
+        return ParagraphDto.builder().subject(subject).label(label).content(content).matched_image(photoURL).image_caption(image_caption).build();
     }
 }
